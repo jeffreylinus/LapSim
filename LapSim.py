@@ -50,7 +50,7 @@ class LapSim:
         self.pts_interp, self.ds, self.track_len = self.discretize()
 
         # calculate radius of curvature
-        self.r = self.roc()
+        self.dpds, self.d2pds2, self.r = self.roc()
 
         # find apex locations
         self.apex = self.find_apex()
@@ -69,7 +69,7 @@ class LapSim:
         # Parametrize track by variable s. Assume that the input points are ordered and arbitrarily spaced.
         # Parametrization with respect to normalized arc length
         diff = self.pts - np.roll(self.pts,1,axis=1)
-        arclen = np.linalg.norm(diff,axis=0)
+        arclen = np.linalg.norm(diff,axis=0)   # length of displacement vector
         track_len = np.sum(arclen)
         s = np.cumsum(arclen)/track_len
 
@@ -100,16 +100,16 @@ class LapSim:
         '''
 
         diff = ((self.pts_interp - np.roll(self.pts_interp,1,axis=1))+(np.roll(self.pts_interp,-1,axis=1)-self.pts_interp))/2
-        drds = diff/self.ds
+        dpds = diff/self.ds
 
-        diff2 = ((drds - np.roll(drds,1,axis=1))+(np.roll(drds,-1,axis=1)-drds))/2
-        d2rds2 = diff2/self.ds
+        diff2 = ((dpds - np.roll(dpds,1,axis=1))+(np.roll(dpds,-1,axis=1)-dpds))/2
+        d2pds2 = diff2/self.ds
 
-        num = np.linalg.norm(drds,axis=0)**3
-        den = np.cross(drds,d2rds2,axis=0)
+        num = np.linalg.norm(dpds,axis=0)**3
+        den = np.cross(dpds,d2pds2,axis=0)
         r = num/den
         
-        return r
+        return dpds, d2pds2, r
 
     
     def find_apex(self):
@@ -145,7 +145,7 @@ class LapSim:
         v_{i-1} = -ap*(dt/ds)*ds + v_i = ap*(1/v_i)*ds + v_i     for backward integration
         '''
 
-        a = self.g * self.mu
+        a = self.g * self.mu                            # might want to split lateral/longitudinal traction limit
         vf = np.zeros(self.steps)
         vf[self.apex] = np.sqrt(self.mu * self.g * self.r[self.apex])     # velocity at apex
         
@@ -209,8 +209,8 @@ class LapSim:
         ax1 = fig.add_subplot(111)
         ax1.set_aspect('equal')
         plt.scatter(self.pts_interp[0],self.pts_interp[1],label='Discretized points')
-        plt.quiver(self.pts_interp[0],self.pts_interp[1],drds[0],drds[1],linewidth=0.5,label='drds')
-        plt.quiver(self.pts_interp[0],self.pts_interp[1],d2rds2[0],d2rds2[1],label='d2rds2')
+        plt.quiver(self.pts_interp[0],self.pts_interp[1],self.dpds[0],self.dpds[1],linewidth=0.5,label='dpds')
+        plt.quiver(self.pts_interp[0],self.pts_interp[1],self.d2pds2[0],self.d2pds2[1],label='d2pds2')
         plt.title('Curvature')
         plt.legend()
         plt.draw()
