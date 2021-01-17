@@ -38,7 +38,7 @@ class LapSim:
         res = kwargs.pop('resolution',10)               # resolution of initial track data
         # input track data
         s = np.linspace(0,2*np.pi,res,endpoint=False)
-        pts = np.vstack((3*np.cos(s),2*np.sin(s)))
+        pts = np.vstack((3*np.cos(s)+0.5*np.sin(3*s),2*np.sin(s)+0.2*np.sin(5*s)))
         
         return cls(pts=pts, **kwargs)
 
@@ -112,7 +112,7 @@ class LapSim:
         d2pds2 = diff2/self.ds
 
         num = np.linalg.norm(dpds,axis=0)**3
-        den = np.cross(dpds,d2pds2,axis=0)
+        den = np.absolute(np.cross(dpds,d2pds2,axis=0))
         r = num/den
         
         return dpds, d2pds2, r
@@ -130,12 +130,12 @@ class LapSim:
         sign_flip = sign - np.roll(sign,-1,axis=0)
 
         apex = np.where(sign_flip == np.min(sign_flip))
-        apex_min = np.argmin(self.r)
-        idx_0 = self.r.shape[0]-apex_min
+        # apex_min = np.argmin(self.r)
+        idx_0 = self.r.shape[0]-apex[0][0]
         idx = np.arange(self.r.shape[0]) - idx_0
 
-        # re-indexing to make apex with the minimum radius of curvature the first point
-        apex = apex-apex_min
+        # re-indexing to make apex the first point
+        apex = apex-apex[0][0]
         self.r = self.r[idx]
         self.pts_interp = self.pts_interp[:,idx]
 
@@ -161,33 +161,37 @@ class LapSim:
 
         # get velocity list
         while i<self.steps:
-            if (state == 'f' and v[i+1]==0):
-                ap = v[i]**2/self.r[i+1]
-                if self.alim>ap:
-                    v[i+1] = self.v_integrate(vin=v[i],ap=ap)
+            if state == 'f':                                                        # forward
+                if v[i+1]==0:
+                    ap = v[i]**2/self.r[i+1]
+                    if self.alim>ap:                                                # below traction limit
+                        v[i+1] = self.v_integrate(vin=v[i],ap=ap)
+                        i+=1
+                    else:                                                           # traction is lost
+                        state = 'b'
+                        apex_idx= np.remainder(apex_idx+1, len(self.apex[0]))
+                        print('losing traction, jumping to apex '+str(apex_idx+1))
+                        i = self.apex[0][apex_idx]
+                elif np.min(v)==0:                                                  # reaching an apex without braking
                     i+=1
+                    apex_idx = np.remainder(apex_idx+1, len(self.apex[0]))
                 else:
-                    state = 'b'
-                    apex_idx= np.remainder(apex_idx+1, len(self.apex[0]))
-                    print('losing traction, jumping to apex '+str(apex_idx+1))
-                    i = self.apex[0][apex_idx]
-            elif state == 'b':
+                    print('reached end of track')
+                    break
+            elif state == 'b':                                                  # backward
                 ap = v[i]**2/self.r[i-1]
-                if v[i-1]==0:
+                if v[i-1]==0:                                                   # if velocity is not yet calculated
                     v[i-1] = self.v_integrate(vin=v[i],ap=ap)
                     i-=1
-                else:
+                else:                                                           # if velocity is calculated from forward integration
                     vback = self.v_integrate(vin=v[i],ap=ap)
-                    if vback < v[i-1]:
+                    if vback < v[i-1]:                                          # continue backward integration
                         v[i-1] = vback
                         i-=1
-                    else:
+                    else:                                                       # found brake point 
                         print('reached break point, start integrating forward from apex '+str(apex_idx+1))
                         state = 'f'
                         i = self.apex[0][apex_idx]
-            else:
-                print('reached end of track')
-                break
 
 
         return v
@@ -221,12 +225,12 @@ class LapSim:
         fig = plt.figure(figsize=(8,6))
         ax1 = fig.add_subplot(111)
         ax1.set_aspect('equal')
-        plt.scatter(self.pts_interp[0], self.pts_interp[1],label='Interpolation')
+        plt.scatter(self.pts_interp[0], self.pts_interp[1],s=10,label='Interpolation')
         plt.scatter(self.pts[0],self.pts[1],s=2,label='Input')
         if apex==1:
-            plt.scatter(self.pts_interp[0,self.apex],self.pts_interp[1,self.apex],c='r',label='apex')
+            plt.scatter(self.pts_interp[0,self.apex],self.pts_interp[1,self.apex],c='g',marker='^',label='apex')
         if brake==1:
-            plt.scatter(self.pts_interp[0,self.brake],self.pts_interp[1,self.brake],c='k',label='brake')
+            plt.scatter(self.pts_interp[0,self.brake],self.pts_interp[1,self.brake],c='r',marker='x',label='brake')
         plt.title('Discretized Track points (equidistant in s)')
         plt.legend()
         plt.draw()
