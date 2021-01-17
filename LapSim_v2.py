@@ -4,7 +4,7 @@ import matplotlib.pyplot as plt
 class LapSim:
     '''
     A lap time simulator (point-mass)
-    Forward and backward integration from apex
+    Forward integration, check continuity of velocity
     '''
 
     def __init__(self, **kwargs):
@@ -16,6 +16,7 @@ class LapSim:
         self.mu = kwargs.pop('mu',0.5)                    # tyre frictional coefficient
         self.g = 9.81                                   # gravitational acceleration
         self.steps = kwargs.pop('steps', 50)            # number of discretized points
+        self.alim = kwargs.pop('alim',0)                # traction limit
 
         self.pts = kwargs.pop('pts',0)                  # input track data
         self.pts_interp = kwargs.pop('pts_interp',0)    # interpolated track data
@@ -57,7 +58,11 @@ class LapSim:
         self.apex = self.find_apex()
 
         # calculate traction-limited velocity at each point
-        self.v, self.brake = self.get_velocity()
+        self.v = self.get_velocity()
+
+        # find brake points
+        self.brake = self.find_brake_pts()
+
         self.plot_discretized_points(apex=1, brake=1)            # check apex location
 
         # calculate lap time
@@ -125,11 +130,12 @@ class LapSim:
         sign_flip = sign - np.roll(sign,-1,axis=0)
 
         apex = np.where(sign_flip == np.min(sign_flip))
-        idx_0 = self.r.shape[0]-apex[0][0]
+        apex_min = np.argmin(self.r)
+        idx_0 = self.r.shape[0]-apex_min
         idx = np.arange(self.r.shape[0]) - idx_0
 
-        # re-indexing to make apex the first point
-        apex = apex-apex[0][0]
+        # re-indexing to make apex with the minimum radius of curvature the first point
+        apex = apex-apex_min
         self.r = self.r[idx]
         self.pts_interp = self.pts_interp[:,idx]
 
@@ -142,46 +148,72 @@ class LapSim:
         m*ap = mv^2/r
         a = sqrt(ap^2+at^2)
         a = mu * N
-        v_{i+1} = ap*(dt/ds)*ds + v_i = ap*(1/v_i)*ds + v_i     for forward integration
-        v_{i-1} = -ap*(dt/ds)*ds + v_i = ap*(1/v_i)*ds + v_i     for backward integration
+        v_{i+1} = ap*(dt/ds)*ds + v_i = ap*(1/v_i)*ds + v_i     for increasing roc
+        Repeat calculation until losing traction, then jump to the next apex and integrate backwards to find the brake point.
         '''
 
-        a = self.g * self.mu                            # might want to split lateral/longitudinal traction limit
-        vf = np.zeros(self.steps)
-        vf[self.apex] = np.sqrt(self.mu * self.g * self.r[self.apex])     # velocity at apex
-        
-        # get velocity list (forward)
-        for i in np.arange(self.steps-1):
-            if vf[i+1] == 0:
-                ap = vf[i]**2/self.r[i+1]
-                if a>ap:
-                    at = np.sqrt(a**2 - ap**2)
-                else: 
-                    at = 0
-                vf[i+1] = vf[i]+at*np.abs(1/vf[i])*self.ds
+        self.alim = self.g * self.mu                            # might want to split lateral/longitudinal traction limit
+        v = np.zeros(self.steps)
+        v[self.apex] = np.sqrt(self.mu * self.g * self.r[self.apex])     # velocity at apex
+        i = 0
+        apex_idx = 0
+        state = 'f'
 
-        vb = np.zeros(self.steps)
-        vb[self.apex] = np.sqrt(self.mu * self.g * self.r[self.apex])     # velocity at apex
+        # get velocity list
+        while i<self.steps:
+            if (state == 'f' and v[i+1]==0):
+                ap = v[i]**2/self.r[i+1]
+                if self.alim>ap:
+                    v[i+1] = self.v_integrate(vin=v[i],ap=ap)
+                    i+=1
+                else:
+                    state = 'b'
+                    apex_idx= np.remainder(apex_idx+1, len(self.apex[0]))
+                    print('losing traction, jumping to apex '+str(apex_idx+1))
+                    i = self.apex[0][apex_idx]
+            elif state == 'b':
+                ap = v[i]**2/self.r[i-1]
+                if v[i-1]==0:
+                    v[i-1] = self.v_integrate(vin=v[i],ap=ap)
+                    i-=1
+                else:
+                    vback = self.v_integrate(vin=v[i],ap=ap)
+                    if vback < v[i-1]:
+                        v[i-1] = vback
+                        i-=1
+                    else:
+                        print('reached break point, start integrating forward from apex '+str(apex_idx+1))
+                        state = 'f'
+                        i = self.apex[0][apex_idx]
+            else:
+                print('reached end of track')
+                break
 
-        # get velocity list (backward)
-        for i in np.arange(self.steps-1):
-            if vb[-(i+1)] == 0:
-                ap = vb[-i]**2/self.r[-(i+1)]
-                if a>ap:
-                    at = np.sqrt(a**2 - ap**2)
-                else: 
-                    at = 0
-                vb[-(i+1)] = vb[-i]+at*np.abs(1/vb[-i])*self.ds
 
-        # get braking locations (forward and backward vlists intersect)
-        diff = np.sign(vb-vf)
-        signflip = diff - np.roll(diff,-1,axis=0)
-        brakepts = np.where(signflip == np.max(signflip))
+        return v
 
-        # get final velocity list
-        v = np.min([vb,vf],axis=0)
 
-        return v, brakepts
+    def v_integrate(self, vin=0, ap=0):
+        '''
+        Integrate for velocity
+        '''
+
+        at = np.sqrt(self.alim**2-ap**2)
+        v = vin + at*np.abs(1/vin)*self.ds
+
+        return v
+
+
+    def find_brake_pts(self):
+        '''
+        Find brake points from velocity list
+        '''
+
+        v_diff = np.sign(self.v - np.roll(self.v, 1, axis=0))
+        sign_flip = v_diff - np.roll(v_diff,-1,axis=0)
+        brake = np.where(sign_flip == np.max(sign_flip))
+
+        return brake
 
 
     def plot_discretized_points(self, apex=0, brake=0):

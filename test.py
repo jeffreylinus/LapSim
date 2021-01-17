@@ -1,5 +1,5 @@
 import numpy as np
-from LapSim import LapSim
+from LapSim_v2 import LapSim
 import matplotlib.pyplot as plt
 
 lapsim = LapSim.init_ellipse(resolution=50, steps=100) 
