@@ -7,6 +7,20 @@ class LapSim:
     Forward integration until losing traction
     Backward integration from next apex to find brake point
 
+    energy consumption (endurance)
+        split between gas and battery
+    powertrain
+        maximum acceleration/power output
+
+    Change gears:
+
+    
+    1km track
+    
+
+
+    powertrain paper
+
     '''
 
     def __init__(self, **kwargs):
@@ -15,10 +29,12 @@ class LapSim:
         """
 
         self.m = kwargs.pop('m',300)                    # mass of car [kg]
-        self.mu = kwargs.pop('mu',0.5)                    # tyre frictional coefficient
+        self.mu = kwargs.pop('mu',0.4)                    # tyre frictional coefficient
         self.g = 9.81                                   # gravitational acceleration
         self.steps = kwargs.pop('steps', 50)            # number of discretized points
         self.alim = kwargs.pop('alim',0)                # traction limit
+        self.gear_ratio = kwargs.pop('gear_ratio',20)    # gear ratio
+        self.wheel_radius = kwargs.pop('wheel_radius', 14)   # wheel radius [inches]
 
         self.pts = kwargs.pop('pts',0)                  # input track data
         self.pts_interp = kwargs.pop('pts_interp',0)    # interpolated track data
@@ -40,7 +56,7 @@ class LapSim:
         res = kwargs.pop('resolution',10)               # resolution of initial track data
         # input track data
         s = np.linspace(0,2*np.pi,res,endpoint=False)
-        pts = np.vstack((3*np.cos(s)+0.5*np.sin(3*s),2*np.sin(s)+0.2*np.sin(5*s)))
+        pts = np.vstack((300*np.cos(s)+50*np.sin(3*s),200*np.sin(s)+20*np.sin(5*s)))
         
         return cls(pts=pts, **kwargs)
 
@@ -60,7 +76,7 @@ class LapSim:
         self.apex = self.find_apex()
 
         # calculate traction-limited velocity at each point
-        self.v = self.get_velocity()
+        self.v = self.get_velocity_list()
 
         # find brake points
         self.brake = self.find_brake_pts()
@@ -144,7 +160,7 @@ class LapSim:
         return apex
 
 
-    def get_velocity(self):
+    def get_velocity_list(self):
         '''
         Calculates traction-limited velocity at each point
         m*ap = mv^2/r
@@ -167,7 +183,7 @@ class LapSim:
                 if v[i+1]==0:
                     ap = v[i]**2/self.r[i+1]
                     if self.alim>ap:                                                # below traction limit
-                        v[i+1] = self.v_integrate(vin=v[i],ap=ap)
+                        v[i+1] = self.calc_velocity(vin=v[i],ap=ap)
                         i+=1
                     else:                                                           # traction is lost
                         state = 'b'
@@ -183,10 +199,10 @@ class LapSim:
             elif state == 'b':                                                  # backward
                 ap = v[i]**2/self.r[i-1]
                 if v[i-1]==0:                                                   # if velocity is not yet calculated
-                    v[i-1] = self.v_integrate(vin=v[i],ap=ap)
+                    v[i-1] = self.calc_velocity(vin=v[i],ap=ap)
                     i-=1
                 else:                                                           # if velocity is calculated from forward integration
-                    vback = self.v_integrate(vin=v[i],ap=ap)
+                    vback = self.calc_velocity(vin=v[i],ap=ap)
                     if vback < v[i-1]:                                          # continue backward integration
                         v[i-1] = vback
                         i-=1
@@ -199,13 +215,47 @@ class LapSim:
         return v
 
 
-    def v_integrate(self, vin=0, ap=0):
+    def calc_velocity(self, vin=0, ap=0):
         '''
-        Integrate for velocity
+        Calculate velocity at the next discretized step
+        Integrate for traction-limited velocity 
+        Calculate maximum velocity allowed with the current power output using P_max = F.v_max
+        Compare and return the lower value as the velocity at the next step
+
+        TODO
+
+        check when to shift gear
+        - check power output for every gear ratio?
+
+        P = F.v
+        check if 
+        - 
         '''
 
         at = np.sqrt(self.alim**2-ap**2)
-        v = vin + at*np.abs(1/vin)*self.ds
+
+        # 1. Check torque?
+        # 2. Check max rpm (first choice)
+            # down shift: shift when rpm maximizes for the lower gear right below max rpm
+            # for now ignore shifting time
+        # 3. CVT (max rpm all the way)
+        # 4. Thresholding by speed (but might not be optimal)
+        # acceleration required by traction-limit calculation vs max. acceleration that can be provided by the engine
+
+
+        v_trac = vin + at*np.abs(1/vin)*self.ds             # traction-limited velocity
+
+        # assume power output relation
+        rpm = vin/(self.wheel_radius*0.0254*2*np.pi)*60*self.gear_ratio
+
+        Power = 10+(rpm-3000)*3/1000                                # power [hp]
+
+        v_pow = (Power*745.7)/(self.m * at)                         # power-limited velocity
+
+        v = np.min([v_trac,v_pow])
+
+        if v == v_pow:
+            print('power_limited!')
 
         return v
 
