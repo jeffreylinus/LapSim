@@ -29,3 +29,15 @@ def get_trans_data(name):
     swiss_auto_trans = [8.18]
 
     return eval(name)
+
+
+def get_fuel_data():
+
+    y, x = np.mgrid[15:30:4j, 400:1400:9j]
+
+    fuel = np.array([[13,13,13,13,13,13,13,13,13],[16,16,16,15,15,15,15,15,15],\
+        [23,23,23,23,23,22.5,22.5,22.5,22.5],[0,30,32,32.5,32.5,32,32,28,0]])
+    
+    data = np.transpose([x.reshape(-1),y.reshape(-1),fuel.reshape(-1)])
+
+    return data
