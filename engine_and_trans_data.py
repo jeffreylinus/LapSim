@@ -18,7 +18,7 @@ def get_power_data(name):
 def get_trans_data(name):
 
     #transmission ratios
-    #as reduction ratios so divide 
+    #as reduction ratios so divide  engine rpm = wheel rpm * gear ratio --> engine torque = wheel torque / gear ratio
     #[primary ratio, final ratio, 1st, 2nd, 3rd, 4th...] 
     #or single ratio if straight drive
     ktm_250_SX_F_trans = [2.8, 3.57, 2, 1.62, 1.33, 1.14, .95]
@@ -32,6 +32,11 @@ def get_trans_data(name):
 
 
 def get_fuel_data():
+    '''
+    x - rpm (400-1400)
+    y - torque (15-30)
+    fuel - fuel efficiency [%]
+    '''
 
     y, x = np.mgrid[15:30:4j, 400:1400:9j]
 

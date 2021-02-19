@@ -18,6 +18,12 @@ class LapSim:
     - checked longer track; reached power limit
     - added fuel efficiency check; interpolation falls out of range of data so it's a scam rn
 
+
+    TODO:
+    make car class
+    make a straight track
+        - maybe can get tyre coeff results
+
     '''
 
     def __init__(self, **kwargs):
@@ -26,7 +32,7 @@ class LapSim:
         """
 
         self.m = kwargs.pop('m',0)                          # mass of car [kg]
-        self.mu = kwargs.pop('mu',0.3)                      # tyre frictional coefficient
+        self.mu = kwargs.pop('mu',0.5)                      # tyre frictional coefficient
         self.g = 9.81                                       # gravitational acceleration
         self.steps = kwargs.pop('steps', 50)                # number of discretized points
         self.alim = kwargs.pop('alim',0)                    # traction limit
@@ -75,12 +81,17 @@ class LapSim:
 
 
     @classmethod
-    def init_straight_circ(cls, **kwargs):
+    def init_data(cls, **kwargs):
         '''
         2 straights + 2 circular corners
         Input arguments:
             l = length of straight section [m]
             r = radius of circular section [m]
+        
+        This is intended to be the general track init function with input data files.
+
+        *******WIP*******
+
         '''
         res = kwargs.pop('resolution',10)               # resolution of initial track data
         power_curve = kwargs.pop('power',0)             # (rpm, power[hp])
@@ -222,7 +233,7 @@ class LapSim:
         i = 0
         apex_idx = 0
         state = 'f'
-        gear = 2
+        gear = 1
         energy_list[0] = self.calc_fuel(gear, v[0])
 
         # get velocity list
@@ -268,12 +279,11 @@ class LapSim:
 
     def calc_velocity(self, vin=0, ap=0, gear=1):
         '''
-        Calculate velocity at the next discretized step
-        Integrate for traction-limited velocity 
-        Calculate maximum velocity allowed with the current power output using P_max = F.v_max
-        Compare and return the lower value as the velocity at the next step
-        Check rpm at each step and determine whether to shift gear
-        - 
+        Calculates velocity at the next discretized step
+        - Integrate for traction-limited velocity 
+        - Calculate maximum acceleration allowed at the current power output and integrate for power-limited velocity
+        - Compare and return the lower value as the velocity at the next step
+        - Check rpm at each step and determine whether to shift gear
         '''
 
         # calculate rpm and check for shifting conditions
@@ -290,12 +300,16 @@ class LapSim:
         if gear != gear_curr:
             print('shifting; current gear:', gear_curr)
 
-        Power = self.power(rpm_list[rpm_idx[0][0]])
+        Power = self.power(rpm_list[rpm_idx[0][0]])                                 
 
-        # calculate velocity    
-        at = np.sqrt(self.alim**2-ap**2)                                            # tangential acceleration
+        # calculate velocities and compare   
+        at = np.sqrt(self.alim**2-ap**2)                                            # (traction limited) tangential acceleration
         v_trac = vin + at*np.abs(1/vin)*self.ds                                     # traction-limited velocity
-        v_pow = ((Power+self.power_EM)*745.7)/(self.m * at)                         # power-limited velocity (including EM)
+
+        # Power/rpm -> torque at the engine output (*gear ratio) -> torque at the wheel -> force at the wheel -> acceleration
+        omega_rad_s = (rpm_list[rpm_idx[0][0]]/60)*(2*np.pi)                        # angular velocity [rad/s] revolution per minute / 60s * 2pi
+        ae = (Power*745.7/omega_rad_s)*gear_curr/(self.wheel_radius*0.0254)/self.m
+        v_pow = vin + ae*np.abs(1/vin)*self.ds                                      # traction-limited velocity
 
         v = np.min([v_trac,v_pow])
         if v == v_pow:
@@ -322,11 +336,12 @@ class LapSim:
         from scipy.interpolate import griddata
         intmethod = 'cubic'
         eta = griddata(self.fuel[:,:2], self.fuel[:,2], (x,y), method=intmethod)
+
         P_ICE = Power*100/eta*745.7*(self.ds/v)                 # power consumed by ICE [J]
         P_EM = self.power_EM*100/self.eta_EM*745.7*(self.ds/v)  # power consumed by EM [J]
 
         if np.isnan(eta):
-            print('WARNING: ICE speed and torque outside of the interpolation range.')
+            print('WARNING: ICE speed and/or torque are outside of the interpolation range.')
 
         return [P_ICE, P_EM]
 
