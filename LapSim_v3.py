@@ -16,6 +16,13 @@ class LapSim:
 
     
     1km track
+
+    TODO:
+
+    - ask for track data
+    - check straight track for power limit
+    - add electric motor when power limited
+        - make it more fuel efficient
     
 
 
@@ -28,13 +35,17 @@ class LapSim:
         Init function
         """
 
-        self.m = kwargs.pop('m',300)                    # mass of car [kg]
-        self.mu = kwargs.pop('mu',0.4)                    # tyre frictional coefficient
+        self.m = kwargs.pop('m',0)                    # mass of car [kg]
+        self.mu = kwargs.pop('mu',0.3)                    # tyre frictional coefficient
         self.g = 9.81                                   # gravitational acceleration
         self.steps = kwargs.pop('steps', 50)            # number of discretized points
         self.alim = kwargs.pop('alim',0)                # traction limit
-        self.gear_ratio = kwargs.pop('gear_ratio',20)    # gear ratio
+        self.gear_ratio = kwargs.pop('tran',10)        # transmission gear ratio
+        self.power = kwargs.pop('power',0)              # power curve interpolation (rpm, power[hp])
+        self.maxrpm = kwargs.pop('maxrpm',0)            # maximum rpm
+        self.minrpm = kwargs.pop('minrpm',0)            # minimum rpm
         self.wheel_radius = kwargs.pop('wheel_radius', 14)   # wheel radius [inches]
+        self.power_EM = kwargs.pop('EM',0)              # electric motor (if any) power
 
         self.pts = kwargs.pop('pts',0)                  # input track data
         self.pts_interp = kwargs.pop('pts_interp',0)    # interpolated track data
@@ -54,11 +65,21 @@ class LapSim:
         Init from ellipse
         '''
         res = kwargs.pop('resolution',10)               # resolution of initial track data
+        power_curve = kwargs.pop('power',0)             # (rpm, power[hp])
+        tran = np.array(kwargs.pop('tran',0))           # transmission gear ratio
+        
         # input track data
         s = np.linspace(0,2*np.pi,res,endpoint=False)
-        pts = np.vstack((300*np.cos(s)+50*np.sin(3*s),200*np.sin(s)+20*np.sin(5*s)))
+        # pts = np.vstack((300*np.cos(s)+50*np.sin(3*s),200*np.sin(s)+20*np.sin(5*s)))
+        # do a circle with 
+        pts = np.vstack((500*np.cos(s),200*np.sin(s)))
+
+        from scipy.interpolate import interp1d
+        rpm = np.array(power_curve).T[0]                # rpm data
+        power = np.array(power_curve).T[1]              # power data [hp]
+        pint = interp1d(rpm,power, kind='cubic')        # interpolation
         
-        return cls(pts=pts, **kwargs)
+        return cls(pts=pts, power=pint, maxrpm=np.max(rpm), minrpm=np.min(rpm), tran=tran, **kwargs)
 
 
     def lap_time(self):
@@ -176,33 +197,36 @@ class LapSim:
         i = 0
         apex_idx = 0
         state = 'f'
+        gear = 1
 
         # get velocity list
         while i<self.steps:
             if state == 'f':                                                        # forward
-                if v[i+1]==0:
-                    ap = v[i]**2/self.r[i+1]
+                if v[np.remainder(i+1, self.steps)]==0:
+                    ap = v[i]**2/self.r[np.remainder(i+1, self.steps)]
                     if self.alim>ap:                                                # below traction limit
-                        v[i+1] = self.calc_velocity(vin=v[i],ap=ap)
-                        i+=1
+                        v[np.remainder(i+1, self.steps)], gear = self.calc_velocity(vin=v[i],ap=ap, gear=gear)
+                        i = np.remainder(i+1, self.steps)
                     else:                                                           # traction is lost
                         state = 'b'
                         apex_idx= np.remainder(apex_idx+1, len(self.apex[0]))
                         print('losing traction, jumping to apex '+str(apex_idx+1))
                         i = self.apex[0][apex_idx]
-                elif np.min(v)==0:                                                  # reaching an apex without braking
-                    i+=1
-                    apex_idx = np.remainder(apex_idx+1, len(self.apex[0]))
-                else:
-                    print('reached end of track')
-                    break
+                else:                                                               # check if velocity at next apex can be achieved with the current gear
+                    # self.check_velocity_at_apex(vin=v[i], vnext=v[np.remainder(i+1, self.steps)],ap=ap)
+                    if np.min(v)==0:                                                  # reaching an apex without braking
+                        i = np.remainder(i+1, self.steps)
+                        apex_idx = np.remainder(apex_idx+1, len(self.apex[0]))
+                    else:
+                        print('reached end of track')
+                        break
             elif state == 'b':                                                  # backward
                 ap = v[i]**2/self.r[i-1]
                 if v[i-1]==0:                                                   # if velocity is not yet calculated
-                    v[i-1] = self.calc_velocity(vin=v[i],ap=ap)
+                    v[i-1], gear = self.calc_velocity(vin=v[i],ap=ap, gear=gear)
                     i-=1
                 else:                                                           # if velocity is calculated from forward integration
-                    vback = self.calc_velocity(vin=v[i],ap=ap)
+                    vback, gear = self.calc_velocity(vin=v[i],ap=ap, gear=gear)
                     if vback < v[i-1]:                                          # continue backward integration
                         v[i-1] = vback
                         i-=1
@@ -215,23 +239,16 @@ class LapSim:
         return v
 
 
-    def calc_velocity(self, vin=0, ap=0):
+    def calc_velocity(self, vin=0, ap=0, gear=1):
         '''
         Calculate velocity at the next discretized step
         Integrate for traction-limited velocity 
         Calculate maximum velocity allowed with the current power output using P_max = F.v_max
         Compare and return the lower value as the velocity at the next step
-
-        TODO
-
-        check when to shift gear
-        - check power output for every gear ratio?
-
-        P = F.v
-        check if 
+        Check rpm at each step and determine whether to shift gear
         - 
         '''
-
+        
         at = np.sqrt(self.alim**2-ap**2)
 
         # 1. Check torque?
@@ -244,20 +261,53 @@ class LapSim:
 
 
         v_trac = vin + at*np.abs(1/vin)*self.ds             # traction-limited velocity
+        r = 0.9                                             # set the max rpm
 
-        # assume power output relation
-        rpm = vin/(self.wheel_radius*0.0254*2*np.pi)*60*self.gear_ratio
+        rpm0 = vin/(self.wheel_radius*0.0254*2*np.pi)*60    # rpm of wheels
+        rpm_list = rpm0*self.gear_ratio[2:]*self.gear_ratio[0]*self.gear_ratio[1]   # rpm at current gear
 
-        Power = 10+(rpm-3000)*3/1000                                # power [hp]
+        rpm_idx = np.where((self.maxrpm*r>rpm_list) & (self.minrpm<rpm_list))       # index of possible rpm
+        if len(rpm_idx) == 0:
+            print('No gear available. Current rpm:', rpm_list[gear-1])
+        else:
+            Power = self.power(rpm_list[rpm_idx[0][0]])
+            gear_curr = rpm_idx[0][0]+1                                                    # gear chosen for next step
+        
+        if gear != gear_curr:
+            print('shifting; current gear:', gear_curr)
 
-        v_pow = (Power*745.7)/(self.m * at)                         # power-limited velocity
+
+        # if gear==1:
+        #     rpm_down = 0
+        # else:
+        #     rpm_down = rpm0*self.gear_ratio[gear]*self.gear_ratio[0]*self.gear_ratio[1]
+        
+        # if gear==len(self.gear_ratio)-2:
+        #     rpm_up = 10E10
+        # else:
+        #     rpm_up = rpm0*self.gear_ratio[gear+2]*self.gear_ratio[0]*self.gear_ratio[1]
+        
+        # if (self.maxrpm*r>rpm_down and self.minrpm<rpm_down):
+        #     Power = self.power(rpm_down)                                        # power [hp]
+        #     gear = gear-1                                                       # downshift
+        #     print('downshifting... at gear',gear)
+        # elif (self.maxrpm*r>rpm_curr and self.minrpm<rpm_curr):
+        #     Power = self.power(rpm_curr)                                        # power [hp] at current gear
+        # elif (self.maxrpm*r>rpm_up and self.minrpm<rpm_up):
+        #     Power = self.power(rpm_up)
+        #     gear = gear+1                                                       # upshift
+        #     print('upshifting... at gear',gear)
+        # else:
+        #     print('error at gear', gear, ', rpm =', rpm_curr, ', rpm_down =', rpm_down, ', rpm =', rpm_up)
+            
+        v_pow = ((Power+self.power_EM)*745.7)/(self.m * at)                         # power-limited velocity (including EM)
 
         v = np.min([v_trac,v_pow])
 
         if v == v_pow:
             print('power_limited!')
 
-        return v
+        return v, gear_curr
 
 
     def find_brake_pts(self):
