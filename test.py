@@ -3,8 +3,10 @@ from LapSim_v3 import LapSim
 import matplotlib.pyplot as plt
 import engine_and_trans_data as data
 
-power = data.get_power_data('ktm_250_SX_F')
-tran = data.get_trans_data('ktm_250_SX_F_trans')
+power_name = 'honda_cbr_250R' #'ktm_250_SX_F''ktm_duke_200''honda_cbr_250R'
+tran_name = 'honda_cbr_250R_trans' #'ktm_250_SX_F_trans''ktm_duke_200_trans''honda_cbr_250R_trans'
+power = data.get_power_data(power_name)
+tran = data.get_trans_data(tran_name)
 fuel = data.get_fuel_data()
 
 lapsim = LapSim.init_ellipse(resolution=50, steps=100, power=power, EM=33, m=525, tran=tran, fuel=fuel) 

@@ -52,6 +52,7 @@ class LapSim:
 
         self.time = kwargs.pop('time',0)                # total lap time
 
+
     @classmethod
     def init_ellipse(cls, **kwargs):
         '''
@@ -90,7 +91,7 @@ class LapSim:
         # input track data
         straight = np.linspace(-l,l,res/2,endpoint=False)
         # s = np.linspace(np.pi/2, ,res,endpoint=False)
-        pts = np.vstack((500*np.cos(s),200*np.sin(s)))
+        pts = np.vstack((400*np.cos(s),200*np.sin(s)))
 
         from scipy.interpolate import interp1d
         rpm = np.array(power_curve).T[0]                # rpm data
@@ -125,7 +126,10 @@ class LapSim:
         # calculate lap time
         self.time = np.sum(1/(self.v/self.ds))
 
+        self.plot_velocity(apex=1)
+
         return 1
+
 
     def discretize(self):
         
@@ -218,7 +222,7 @@ class LapSim:
         i = 0
         apex_idx = 0
         state = 'f'
-        gear = 1
+        gear = 2
         energy_list[0] = self.calc_fuel(gear, v[0])
 
         # get velocity list
@@ -355,6 +359,38 @@ class LapSim:
         plt.draw()
         
         return 1
+
+    
+    def plot_velocity(self, apex=0):
+
+        from mpl_toolkits.axes_grid1 import make_axes_locatable
+        import matplotlib.cm as cmx
+        import matplotlib.colors
+
+        v = self.v*2.237                        # convert to [mph]
+        fig2 = plt.figure(figsize=(8,6))
+        ax = fig2.add_subplot(111)
+        plt.subplots_adjust(right=0.85)
+        ax.set_aspect('equal')
+        cm = plt.get_cmap('viridis')
+        cNorm = matplotlib.colors.Normalize(vmin = min(v),vmax = max(v))
+        scalarMap = cmx.ScalarMappable(norm=cNorm, cmap=cm)
+        ax.scatter(self.pts_interp[0], self.pts_interp[1],c=scalarMap.to_rgba(v),s=10)
+        # ax.scatter(self.pts[0],self.pts[1],c='k',s=2,label='Input')
+        if apex==1:
+            plt.scatter(self.pts_interp[0,self.apex],self.pts_interp[1,self.apex],c='r',marker='x',label='apex')
+        plt.xlabel('X [m]', fontsize=10)
+        plt.ylabel('Y [m]', fontsize=10)
+        plt.legend(fontsize=10)
+        plt.title('Average speed:'+str('{0:.2f}'.format(np.mean(self.v)*2.23))+'mph'+\
+            '\nTotal energy consumption:'+str('{0:.2f}'.format(np.sum(self.energy)/1000))+'kJ', fontsize=12)
+        cbaxes = fig2.add_axes([0.87, 0.2, 0.02, 0.6])
+        cbar = fig2.colorbar(scalarMap,cax=cbaxes)
+        cbar.ax.set_ylabel('velocity [mph]')
+        plt.draw()
+
+        return 1
+
 
     def plot_derivatives(self):
         '''
