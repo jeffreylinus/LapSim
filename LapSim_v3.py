@@ -1,5 +1,6 @@
 import numpy as np
 import matplotlib.pyplot as plt
+from car import Car
 
 class LapSim:
     '''
@@ -13,16 +14,6 @@ class LapSim:
         maximum acceleration/power output
 
     Change gears when rpm exceeds range
-    
-    UPDATES:
-    - checked longer track; reached power limit
-    - added fuel efficiency check; interpolation falls out of range of data so it's a scam rn
-
-
-    TODO:
-    make car class
-    make a straight track
-        - maybe can get tyre coeff results
 
     '''
 
@@ -31,20 +22,9 @@ class LapSim:
         Init function
         """
 
-        self.m = kwargs.pop('m',0)                          # mass of car [kg]
-        self.mu = kwargs.pop('mu',0.5)                      # tyre frictional coefficient
         self.g = 9.81                                       # gravitational acceleration
         self.steps = kwargs.pop('steps', 50)                # number of discretized points
         self.alim = kwargs.pop('alim',0)                    # traction limit
-
-        self.gear_ratio = kwargs.pop('tran',10)             # transmission gear ratio
-        self.power = kwargs.pop('power',0)                  # power curve interpolation (rpm, power[hp])
-        self.maxrpm = kwargs.pop('maxrpm',0)                # maximum rpm
-        self.minrpm = kwargs.pop('minrpm',0)                # minimum rpm
-        self.wheel_radius = kwargs.pop('wheel_radius', 14)  # wheel radius [inches]
-        self.power_EM = kwargs.pop('EM',0)                  # electric motor (if any) power
-        self.eta_EM = kwargs.pop('eta_EM',95)               # electric motor fuel efficiency (assumed constant)
-        self.fuel = kwargs.pop('fuel',0)                    # ICE fuel efficiency chart
 
         self.pts = kwargs.pop('pts',0)                  # input track data
         self.pts_interp = kwargs.pop('pts_interp',0)    # interpolated track data
@@ -58,6 +38,13 @@ class LapSim:
 
         self.time = kwargs.pop('time',0)                # total lap time
 
+        self.car_init_args = {
+            'name':kwargs.pop('name',0),
+            'm':kwargs.pop('m',300),
+            'mu':kwargs.pop('mu',0.5),
+            'EM':kwargs.pop('EM',0)
+        }
+
 
     @classmethod
     def init_ellipse(cls, **kwargs):
@@ -65,19 +52,12 @@ class LapSim:
         Init from ellipse
         '''
         res = kwargs.pop('resolution',10)               # resolution of initial track data
-        power_curve = kwargs.pop('power',0)             # (rpm, power[hp])
-        tran = np.array(kwargs.pop('tran',0))           # transmission gear ratio
-        
+
         # input track data
         s = np.linspace(0,2*np.pi,res,endpoint=False)
         pts = np.vstack((500*np.cos(s),200*np.sin(s)))
 
-        from scipy.interpolate import interp1d
-        rpm = np.array(power_curve).T[0]                # rpm data
-        power = np.array(power_curve).T[1]              # power data [hp]
-        pint = interp1d(rpm,power, kind='cubic')        # interpolation
-        
-        return cls(pts=pts, power=pint, maxrpm=np.max(rpm), minrpm=np.min(rpm), tran=tran, **kwargs)
+        return cls(pts=pts, **kwargs)
 
 
     @classmethod
@@ -116,7 +96,9 @@ class LapSim:
         '''
         Calculates lap time
         '''
-        
+        # init car
+        self.car = Car.init_config(**self.car_init_args)
+
         # interpolate equidistant points on the track
         self.pts_interp, self.ds, self.track_len = self.discretize()
 
@@ -139,7 +121,7 @@ class LapSim:
 
         self.plot_velocity(apex=1)
 
-        return 1
+        return 1   
 
 
     def discretize(self):
@@ -224,10 +206,10 @@ class LapSim:
         Repeat calculation until losing traction, then jump to the next apex and integrate backwards to find the brake point.
         '''
 
-        self.alim = self.g * self.mu                            # might want to split lateral/longitudinal traction limit
+        self.car.alim = self.g * self.car.mu                            # might want to split lateral/longitudinal traction limit
         v = np.zeros(self.steps)
         energy_list = np.zeros((self.steps,2))
-        v[self.apex] = np.sqrt(self.mu * self.g * self.r[self.apex])     # velocity at apex
+        v[self.apex] = np.sqrt(self.car.mu * self.g * self.r[self.apex])     # velocity at apex
         
 
         i = 0
@@ -241,7 +223,7 @@ class LapSim:
             if state == 'f':                                                        # forward
                 if v[np.remainder(i+1, self.steps)]==0:
                     ap = v[i]**2/self.r[np.remainder(i+1, self.steps)]
-                    if self.alim>ap:                                                # below traction limit
+                    if self.car.alim>ap:                                                # below traction limit
                         v[np.remainder(i+1, self.steps)], gear, energy_list[np.remainder(i+1, self.steps)]= self.calc_velocity(vin=v[i],ap=ap, gear=gear)
                         i = np.remainder(i+1, self.steps)
                     else:                                                           # traction is lost
@@ -288,10 +270,10 @@ class LapSim:
 
         # calculate rpm and check for shifting conditions
         r = 0.9                                             # set the max rpm
-        rpm0 = vin/(self.wheel_radius*0.0254*2*np.pi)*60    # rpm of wheels
-        rpm_list = rpm0*self.gear_ratio[2:]*self.gear_ratio[0]*self.gear_ratio[1]   # rpm at current gear
+        rpm0 = vin/(self.car.wheel_radius*0.0254*2*np.pi)*60    # rpm of wheels
+        rpm_list = rpm0*self.car.gear_ratio[2:]*self.car.gear_ratio[0]*self.car.gear_ratio[1]   # rpm at current gear
 
-        rpm_idx = np.where((self.maxrpm*r>rpm_list) & (self.minrpm<rpm_list))       # index of possible rpm
+        rpm_idx = np.where((self.car.maxrpm*r>rpm_list) & (self.car.minrpm<rpm_list))       # index of possible rpm
         if len(rpm_idx[0]) == 0:
             print('No gear available. Current gear:',gear,', Current rpm:', rpm_list[gear-1])
         else:
@@ -300,15 +282,15 @@ class LapSim:
         if gear != gear_curr:
             print('shifting; current gear:', gear_curr)
 
-        Power = self.power(rpm_list[rpm_idx[0][0]])                                 
+        Power = self.car.power(rpm_list[rpm_idx[0][0]])                                 
 
         # calculate velocities and compare   
-        at = np.sqrt(self.alim**2-ap**2)                                            # (traction limited) tangential acceleration
+        at = np.sqrt(self.car.alim**2-ap**2)                                            # (traction limited) tangential acceleration
         v_trac = vin + at*np.abs(1/vin)*self.ds                                     # traction-limited velocity
 
         # Power/rpm -> torque at the engine output (*gear ratio) -> torque at the wheel -> force at the wheel -> acceleration
         omega_rad_s = (rpm_list[rpm_idx[0][0]]/60)*(2*np.pi)                        # angular velocity [rad/s] revolution per minute / 60s * 2pi
-        ae = (Power*745.7/omega_rad_s)*gear_curr/(self.wheel_radius*0.0254)/self.m
+        ae = (Power*745.7/omega_rad_s)*gear_curr/(self.car.wheel_radius*0.0254)/self.car.m
         v_pow = vin + ae*np.abs(1/vin)*self.ds                                      # traction-limited velocity
 
         v = np.min([v_trac,v_pow])
@@ -327,18 +309,18 @@ class LapSim:
         EM efficiency is assumed to be a constant
         '''
 
-        rpm = v/(self.wheel_radius*0.0254*2*np.pi)*60*self.gear_ratio[gear+1]*self.gear_ratio[0]*self.gear_ratio[1]   # rpm at current gear
-        Power = self.power(rpm)
+        rpm = v/(self.car.wheel_radius*0.0254*2*np.pi)*60*self.car.gear_ratio[gear+1]*self.car.gear_ratio[0]*self.car.gear_ratio[1]   # rpm at current gear
+        Power = self.car.power(rpm)
 
         # calculate energy consumed from fuel efficiency
         x = rpm/60*2*np.pi                  # ICE angular velocity [rad/s]
         y = Power*745.7/x                                       # torque [Nm]
         from scipy.interpolate import griddata
         intmethod = 'cubic'
-        eta = griddata(self.fuel[:,:2], self.fuel[:,2], (x,y), method=intmethod)
+        eta = griddata(self.car.fuel[:,:2], self.car.fuel[:,2], (x,y), method=intmethod)
 
         P_ICE = Power*100/eta*745.7*(self.ds/v)                 # power consumed by ICE [J]
-        P_EM = self.power_EM*100/self.eta_EM*745.7*(self.ds/v)  # power consumed by EM [J]
+        P_EM = self.car.power_EM*100/self.car.eta_EM*745.7*(self.ds/v)  # power consumed by EM [J]
 
         if np.isnan(eta):
             print('WARNING: ICE speed and/or torque are outside of the interpolation range.')
