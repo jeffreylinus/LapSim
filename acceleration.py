@@ -8,6 +8,11 @@ class Acc:
     Forward integration until reaching traction/power limit
 
     Change gears when rpm exceeds range
+
+    TODO:
+    - start accelerating from 0
+    - test our car
+    - report
     
     '''
 
@@ -34,7 +39,7 @@ class Acc:
 
         self.car_init_args = {
             'name':kwargs.pop('name',0),
-            'm':kwargs.pop('m',300),
+            'm':kwargs.pop('m',50),
             'mu':kwargs.pop('mu',0.5),
             'EM':kwargs.pop('EM',0)
         }
@@ -48,7 +53,7 @@ class Acc:
         res = kwargs.get('steps',10)               # resolution of initial track data
 
         # input track data
-        s = np.linspace(0,2500,res,endpoint=False)
+        s = np.linspace(0,500,res,endpoint=True)
         pts = np.vstack((s,np.zeros(res)))
 
         return cls(pts=pts, **kwargs)
@@ -137,12 +142,14 @@ class Acc:
 
         # Power/rpm -> torque at the engine output (*gear ratio) -> torque at the wheel -> force at the wheel -> acceleration
         omega_rad_s = (rpm_list[rpm_idx[0][0]]/60)*(2*np.pi)                        # angular velocity [rad/s] revolution per minute / 60s * 2pi
-        ae = ((Power+self.car.power_EM)*745.7/omega_rad_s)*gear_curr/(self.car.wheel_radius*0.0254)/self.car.m
+        ae = ((Power+self.car.power_EM)*745.7/omega_rad_s)*self.car.gear_ratio[gear_curr+1]/(self.car.wheel_radius*0.0254*self.car.m)
         v_pow = vin + ae*np.abs(1/vin)*self.ds                                      # traction-limited velocity
 
         v = np.min([v_trac,v_pow])
         if v == v_pow:
-            print('power_limited!')
+            print('power_limited! Power [hp] =', Power)
+        else:
+            print('traction limited')
 
         energy = self.calc_fuel(gear_curr, v)
         

@@ -19,7 +19,7 @@ class Car:
         self.power = kwargs.pop('power',0)                  # power curve interpolation (rpm, power[hp])
         self.maxrpm = kwargs.pop('maxrpm',0)                # maximum rpm
         self.minrpm = kwargs.pop('minrpm',0)                # minimum rpm
-        self.wheel_radius = kwargs.pop('wheel_radius', 14)  # wheel radius [inches]
+        self.wheel_radius = kwargs.pop('wheel_radius', 10)  # wheel radius [inches]
         self.eta_EM = kwargs.pop('eta_EM',95)
         self.fuel = kwargs.pop('fuel',0)                    # fuel efficiency
         
@@ -32,6 +32,7 @@ class Car:
         Init from car configuration
         '''
         name = kwargs.pop('name',10)                     # name of car engine
+        m = kwargs.pop('m',300)                        # mass of car [kg]
         
         power_curve = data.get_power_data(name)
         tran = np.array(data.get_trans_data(name+'_trans'))
@@ -45,9 +46,4 @@ class Car:
         return cls(power=pint, maxrpm=np.max(rpm), minrpm=np.min(rpm),\
             tran=tran, fuel=fuel, **kwargs)
 
-    # @staticmethod
-    # def test(x):
-
-    #     print(x)
-
-    #     return 1
+    

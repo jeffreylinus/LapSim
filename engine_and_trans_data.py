@@ -11,6 +11,7 @@ def get_power_data(name):
     briggs_stratton_world_formula_204 = [(3000, 5.5), (4000, 7.5), (5000, 10), (6000, 12.5), (7000, 12.5)]
     kawasaki_ninja_250R_EXJ = [(3000, 4), (4000, 6), (5000, 11), (6000, 13), (7000, 16), (8000, 19), (9000, 22.5), (10000, 25)]
     subaru_EX_21 = [(2000, 4), (3000, 6), (4000, 7)]
+    emrax_208 = [(0,0),(1000,9),(2000,20), (4000,29),(6000,48)]
     
     return eval(name)
 
@@ -26,7 +27,8 @@ def get_trans_data(name):
     honda_cbr_250R_trans = [2.9, 3, 3.33, 2.11, 1.3, 1.57, 1.11, .96]
     yamaha_yz250f_trans = [3, 3.57, 1.9, 1.5, 1.27, 1.09, .95]
     kawasaki_ninja_250R_EXJ_trans = [3.08, 3.21, 2.6, 1.78, 1.4, 1.16, 1, .89] 
-    swiss_auto_trans = [8.18]
+    swiss_auto_trans = [1,1,8.18]
+    emrax_208_trans = [1,1,4]
 
     return eval(name)
 
