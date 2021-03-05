@@ -32,7 +32,7 @@ class Car:
         Init from car configuration
         '''
         name = kwargs.pop('name',10)                     # name of car engine
-        m = kwargs.pop('m',300)                        # mass of car [kg]
+        m = kwargs.get('m',300)                        # mass of car [kg]
         
         power_curve = data.get_power_data(name)
         tran = np.array(data.get_trans_data(name+'_trans'))
