@@ -108,7 +108,7 @@ class Acc:
         return v, gear, energy_list, time
 
 
-    def calc_velocity(self, vin=0, gear=1, hybrid=0):
+    def calc_velocity(self, vin=0, gear=1, hybrid=1):
         '''
         Calculates velocity at the next discretized step
         - Integrate for traction-limited velocity 
@@ -139,14 +139,15 @@ class Acc:
                 rpm_at_gear_curr = rpm_list[rpm_idx[0][0]]
             
         Power = self.car.power(rpm_at_gear_curr)                                          # ICE power output after shifting                              
-
+        print(Power)
         # Power/rpm -> torque at the engine output (*gear ratio) -> torque at the wheel -> force at the wheel -> acceleration
         omega_rad_s = (rpm_at_gear_curr/60)*(2*np.pi)                                           # angular velocity [rad/s] revolution per minute / 60s * 2pi
         ae = ((Power+self.car.power_EM)*745.7/omega_rad_s)*self.car.gear_ratio[gear_curr+1]/(self.car.wheel_radius*0.0254*self.car.m)
-        
+        print(((Power+self.car.power_EM)*745.7/omega_rad_s)*self.car.gear_ratio[gear_curr+1])
+
         # power-limited velocity [m/s]
         # v_pow = vin + ae*np.abs(1/vin)*self.ds   
-        v_pow = np.sqrt(2*ae*self.ds+vin**2)   
+        v_pow = np.sqrt(2*ae*self.ds+vin**2)    # v^2-vi^2 = 2a*ds
         t_pow = (v_pow-vin)/ae                   
 
         # traction-limited velocity [m/s]                   
@@ -231,6 +232,7 @@ class Acc:
         v = self.v*2.237                        # convert to [mph]
 
         fig2 = plt.figure(figsize=(8,6))
+        plt.subplots_adjust(right=0.85)
 
         g = self.gear
         cm = plt.get_cmap('viridis')
@@ -249,6 +251,9 @@ class Acc:
         plt.ylabel('speed [mph]', fontsize=10)
         plt.title('Top speed:'+str('{0:.2f}'.format(np.max(self.v)*2.23))+'mph'+\
             '\nTotal energy consumption:'+str('{0:.2f}'.format(np.sum(self.energy)/1000))+'kJ', fontsize=12)
+        cbaxes = fig2.add_axes([0.87, 0.2, 0.02, 0.6])
+        cbar = fig2.colorbar(scalarMap,cax=cbaxes)
+        cbar.ax.set_ylabel('gear')
         plt.draw()
 
         return 1
