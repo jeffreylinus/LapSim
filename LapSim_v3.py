@@ -75,10 +75,10 @@ class LapSim:
         df1 = pd.read_excel(track_data)                 # read track data file
         X = df1['X'].values
         Y = df1['Y'].values
-        Z = df1['Z'].values
+        # Z = df1['Z'].values
 
-        pts = np.vstack((X,Y,Z))
-        # pts = np.vstack((X,Y))
+        # pts = np.vstack((X,Y,Z))
+        pts = np.vstack((X,Y))
         
         return cls(pts=pts, **kwargs)
 

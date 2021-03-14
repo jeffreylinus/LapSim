@@ -1,60 +1,16 @@
 '''
-A demo script for Acc and LapSim
-
-Updates:
-- start accelerating from 0
-- changed velocity calculation
-- added electric car option
-
-make cars outside of acc/lapsim
-add car.hybrid -- powertrain type: hybrid, gas, electric
-electric car has 2 motors
-
-check EM power for lapsim
-
-TODO:
-+ elevation 
- - traction
- - acceleration
- - curvature
-+ continuous sim 
- - add fuel capacity (4449 Wh)
- - gas: 2343 Wh/Liter
- - sim until run out of fuel
-tyre data
-
-EM:
-- Use continuous torque for endurance
-- Use peak torque for acceleration
-- For hybrid, use constant torque and linear power ***
-
-chapter 14
-chapter 17 (suspension)
-
-torque splitting for efficiency
-
-drag coefficient
-
-series vs parallel
-- FH total capacity: 
-- fix fuel tank, fix accummulator capcity
-Series:
-- charging speed: generator, accummulator (cpacity, current)
-
-
-
-
-
+Testclass
 '''
 
-import numpy as np
-from LapSim_v3 import LapSim
-from acceleration import Acc
-import matplotlib.pyplot as plt
-import engine_and_trans_data as data
+from motor import Motor
+from engine import Engine
+from car import Car
 
-name = 'emrax_208_2'                       #'ktm_250_SX_F''ktm_duke_200''honda_cbr_250R''yamaha_yz250f''kawasaki_ninja_250R_EXJ''emrax_208'
-hybrid = 0                                  # 1-hybrid, 0-electric
+car = Car.init_config(filepath='Powertrain Part Options.xlsx', name_EM='Emrax 207', name_ICE='KTM 250 SX-F', hybrid=1)
+
+# engine = Engine.init_from_file(engine_data='Powertrain Part Options.xlsx', name='KTM 250 SX-F')
+# motor = Motor.init_from_file(motor_data='Powertrain Part Options.xlsx', name='Emrax 207')
+
 run = 'lapsim'                                 # lapsim or acc
 
 if run == 'acc':                        # accleration event
