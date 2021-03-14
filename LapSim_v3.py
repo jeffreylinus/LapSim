@@ -375,9 +375,11 @@ class LapSim:
         Power = self.car.power(rpm_at_gear_curr)                                          # ICE power output after shifting                                   
 
         # Power/rpm -> torque at the engine output (*gear ratio) -> torque at the wheel -> force at the wheel -> acceleration
-        omega_rad_s = (rpm_at_gear_curr/60)*(2*np.pi)                                           # angular velocity [rad/s] revolution per minute / 60s * 2pi
-        ae = ((Power+self.car.power_EM)*745.7/omega_rad_s)*self.car.gear_ratio[gear_curr+1]/(self.car.wheel_radius*0.0254*self.car.m)
+        # omega_rad_s = (rpm_at_gear_curr/60)*(2*np.pi)                                           # angular velocity [rad/s] revolution per minute / 60s * 2pi
+        # ae = ((Power+self.car.power_EM)*745.7/omega_rad_s)*self.car.gear_ratio[gear_curr+1]/(self.car.wheel_radius*0.0254*self.car.m)
         
+        ae = 19.3*1.356**self.car.gear_ratio[gear_curr+1]/(self.car.wheel_radius*0.0254*self.car.m)           # torque at wheel [Nm]
+
         # power-limited velocity [m/s]                       
         v_pow = np.sqrt(2*ae*self.ds+vin**2)
         t_pow = (v_pow-vin)/ae

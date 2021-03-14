@@ -141,9 +141,10 @@ class Acc:
         Power = self.car.power(rpm_at_gear_curr)                                          # ICE power output after shifting                              
         print(Power)
         # Power/rpm -> torque at the engine output (*gear ratio) -> torque at the wheel -> force at the wheel -> acceleration
-        omega_rad_s = (rpm_at_gear_curr/60)*(2*np.pi)                                           # angular velocity [rad/s] revolution per minute / 60s * 2pi
-        ae = ((Power+self.car.power_EM)*745.7/omega_rad_s)*self.car.gear_ratio[gear_curr+1]/(self.car.wheel_radius*0.0254*self.car.m)
-        print(((Power+self.car.power_EM)*745.7/omega_rad_s)*self.car.gear_ratio[gear_curr+1])
+        # omega_rad_s = (rpm_at_gear_curr/60)*(2*np.pi)                                           # angular velocity [rad/s] revolution per minute / 60s * 2pi
+        # ae = ((Power+self.car.power_EM)*745.7/omega_rad_s)*self.car.gear_ratio[gear_curr+1]/(self.car.wheel_radius*0.0254*self.car.m)
+        ae = 160*1.356**self.car.gear_ratio[gear_curr+1]/(self.car.wheel_radius*0.0254*self.car.m)           # torque at wheel [Nm]
+        # print(((Power+self.car.power_EM)*745.7/omega_rad_s)*self.car.gear_ratio[gear_curr+1])
 
         # power-limited velocity [m/s]
         # v_pow = vin + ae*np.abs(1/vin)*self.ds   
