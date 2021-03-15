@@ -26,8 +26,6 @@ class LapSim:
         self.steps = kwargs.pop('steps', 50)                # number of discretized points
         self.alim = kwargs.pop('alim',0)                    # traction limit
 
-        self.hybrid = kwargs.pop('hybrid',1)                # 1-hybrid car  0-electric car
-
         self.pts = kwargs.pop('pts',0)                  # input track data
         self.pts_interp = kwargs.pop('pts_interp',0)    # interpolated track data
         self.track_len = kwargs.pop('track_len',0)      # total track length
@@ -40,12 +38,7 @@ class LapSim:
 
         self.time = kwargs.pop('time',0)                # total lap time
 
-        self.car_init_args = {
-            'name':kwargs.pop('name',0),
-            'm':kwargs.pop('m',300),
-            'mu':kwargs.pop('mu',0.3),
-            'EM':kwargs.pop('EM',0)
-        }
+        self.car = kwargs.pop('car',0)                  # Car class
 
 
     @classmethod
@@ -87,8 +80,6 @@ class LapSim:
         '''
         Calculates lap time
         '''
-        # init car
-        self.car = Car.init_config(**self.car_init_args)
 
         # interpolate equidistant points on the track
         self.pts_interp, self.ds, self.track_len = self.discretize()

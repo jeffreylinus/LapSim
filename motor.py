@@ -15,7 +15,7 @@ class Motor:
         
         self.power_nom = kwargs.pop('power_nom',0)          # nominal electric motor power [kW]
         self.power_max = kwargs.pop('power_max',0)          # max power [kW]
-        self.gear_ratio = kwargs.pop('tran',10)             # transmission gear ratio
+        self.trans = kwargs.pop('trans',10)             # transmission gear ratio
         
         self.maxrpm = kwargs.pop('maxrpm',0)                # maximum rpm
         
@@ -63,6 +63,7 @@ class Motor:
         self.power_nom = df['Power (kW)'].values[idx[0][0]]
         self.power_max = df['Peak Power'].values[idx[0][0]]
         self.m = df['Weight (lbs)'].values[idx[0][0]]*0.4536
+        self.trans = 4
 
         return 1
     

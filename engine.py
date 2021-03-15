@@ -41,6 +41,8 @@ class Engine:
     def get_data(self, engine_data=None, sheet_name='ICE Stats'):
 
         import pandas as pd
+        import ast
+        from scipy.interpolate import interp1d
 
         df = pd.read_excel(engine_data, sheet_name=sheet_name)                 # read track data file
         name = df['Engine Name'].values
@@ -52,15 +54,15 @@ class Engine:
         
         self.capacity = df['cc'].values[idx[0][0]]
         self.m = df['Weight (lbs)'].values[idx[0][0]]*0.4536
-        self.trans = df['Transmission Data'].values[idx[0][0]]
-
         self.eta = self.get_fuel_data()
 
-        power_curve= df['Interpolated Data (rpm, horse power)'].values[idx[0][0]]
-        import ast
-        power_curve = ast.literal_eval(power_curve)
+        trans = df['Transmission Data'].values[idx[0][0]]
+        self.trans = np.array(ast.literal_eval(trans))
 
-        from scipy.interpolate import interp1d
+        power_curve= df['Interpolated Data (rpm, horse power)'].values[idx[0][0]]
+
+        power_curve = np.array(ast.literal_eval(power_curve))
+
         rpm = np.array(power_curve).T[0]                # rpm data
         self.maxrpm = np.max(rpm)
         self.minrpm = np.min(rpm)

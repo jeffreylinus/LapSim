@@ -19,12 +19,10 @@ class Car:
         self.motor= kwargs.pop('motor',0)                   # EM class
 
         self.m = kwargs.pop('m',300)                        # mass of car [kg]
-        self.mu = kwargs.pop('mu',0.5)                      # tyre frictional coefficient
+        self.mu = kwargs.pop('mu',0.8)                      # tyre frictional coefficient
         
-        self.power_EM = kwargs.pop('EM',0)                  # electric motor power
+        self.alim = kwargs.pop('alim',0)                    # traction-limited acceleration (only used in Acc)
         self.wheel_radius = kwargs.pop('wheel_radius', 10)  # wheel radius [inches]
-        self.alim = kwargs.pop('alim',0)                    # accelration limit
-
         self.hybrid = kwargs.pop('hybrid',0)                # 1-hybrid; 0-electric
 
 
@@ -43,7 +41,22 @@ class Car:
 
         if car.hybrid == 1:
             car.engine = Engine.init_from_file(engine_data=filepath, name_ICE=name_ICE)
+
+        car.calc_mass()
         
         return car
+
+    
+    def calc_mass(self):
+        '''
+        Mass calculation (kg)
+        '''
+        base_mass = 250
+
+        if self.hybrid == 1:
+            self.m = base_mass + self.motor.m + self.engine.m
+        elif self.hybrid == 0:
+            self.m = base_mass + self.motor.m
+
 
     

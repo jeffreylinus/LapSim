@@ -6,16 +6,18 @@ from motor import Motor
 from engine import Engine
 from car import Car
 
-car = Car.init_config(filepath='Powertrain Part Options.xlsx', name_EM='Emrax 207', name_ICE='KTM 250 SX-F', hybrid=1)
+import numpy as np
+from LapSim_v3 import LapSim
+from acceleration import Acc
+import matplotlib.pyplot as plt
 
-# engine = Engine.init_from_file(engine_data='Powertrain Part Options.xlsx', name='KTM 250 SX-F')
-# motor = Motor.init_from_file(motor_data='Powertrain Part Options.xlsx', name='Emrax 207')
+car = Car.init_config(filepath='Powertrain Part Options.xlsx', name_EM='Saietta 119R', name_ICE='KTM 250 SX-F', hybrid=1)
 
-run = 'lapsim'                                 # lapsim or acc
+run = 'acc'                                 # lapsim or acc
 
 if run == 'acc':                        # accleration event
     
-    acc = Acc.init_straight(steps=200, name=name, EM=0, m=220, hybrid=hybrid, track_len=300)
+    acc = Acc.init_straight(steps=100, EM=0, m=220, track_len=100, car=car)
     acc.acc_time()
 
     print('Track length:',str('{0:.2f}'.format(acc.track_len/1000)),'km')
