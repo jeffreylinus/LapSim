@@ -1,5 +1,4 @@
 import numpy as np
-import engine_and_trans_data as data
 from motor import Motor
 from engine import Engine
 
@@ -24,6 +23,8 @@ class Car:
         self.alim = kwargs.pop('alim',0)                    # traction-limited acceleration (only used in Acc)
         self.wheel_radius = kwargs.pop('wheel_radius', 10)  # wheel radius [inches]
         self.hybrid = kwargs.pop('hybrid',0)                # 1-hybrid; 0-electric
+
+        self.power_split = kwargs.pop('power_split', 0.5)    # fraction of power drawn from EM
 
 
     @classmethod

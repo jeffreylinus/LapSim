@@ -24,8 +24,7 @@ class LapSim:
 
         self.g = 9.81                                       # gravitational acceleration
         self.steps = kwargs.pop('steps', 50)                # number of discretized points
-        self.alim = kwargs.pop('alim',0)                    # traction limit
-
+        
         self.pts = kwargs.pop('pts',0)                  # input track data
         self.pts_interp = kwargs.pop('pts_interp',0)    # interpolated track data
         self.track_len = kwargs.pop('track_len',0)      # total track length
@@ -110,13 +109,15 @@ class LapSim:
         
         # Parametrize track by variable s. Assume that the input points are ordered and arbitrarily spaced.
         # Parametrization with respect to normalized arc length
-        diff = self.pts - np.roll(self.pts,1,axis=1)
+        diff = np.roll(self.pts,-1,axis=1)-self.pts
         arclen = np.linalg.norm(diff,axis=0)   # length of displacement vector
         track_len = np.sum(arclen)
         s = np.cumsum(arclen)/track_len
+        self.pts = self.pts/track_len*1000      # normalize track data to 1km total track length
 
         # periodic boundary condition (x(0) == x(1), y(0) == y(1))
         s = np.append(0,s)
+        self.s = s
         snew = np.linspace(0,1,num=self.steps, endpoint=False)
         dim = len(self.pts)
         pts_interp = np.zeros((dim, self.steps))
@@ -138,9 +139,9 @@ class LapSim:
         else:
             self.elevation = np.zeros(len(pts_interp[0]))
 
-        ds = track_len/self.steps
+        ds = 1000/self.steps
 
-        return pts_interp, ds, track_len
+        return pts_interp, ds, 1000
 
     
     def roc(self):
@@ -177,7 +178,7 @@ class LapSim:
 
         s = np.arange(self.steps)
         apex = np.where((sign_flip == np.min(sign_flip)))
-        # apex = np.where(self.r[apex0]<np.median(self.r))
+        # apex = np.where(self.r[apex]<np.median(self.r))
 
         # apex_min = np.argmin(self.r)
         idx_0 = self.r.shape[0]-apex[0][0]
@@ -199,13 +200,14 @@ class LapSim:
         a = mu * g
         v_{i+1} = ap*(dt/ds)*ds + v_i = ap*(1/v_i)*ds + v_i     for increasing roc
         Repeat calculation until losing traction, then jump to the next apex and integrate backwards to find the brake point.
+        
+        Get speed -> gear map for every powertrain
+            ignore shift time
         '''
 
         self.car.alim = self.g * self.car.mu                            # might want to split lateral/longitudinal traction limit
-        v = np.zeros(self.steps)
         energy_list = np.zeros((self.steps,2))
-        v[self.apex] = np.sqrt(self.car.mu * self.g * self.r[self.apex])     # velocity at apex
-        gear = np.zeros(self.steps)
+        v, gear = self.v_apex()                                         # velocity and gear at apex
         time = np.zeros(self.steps)
 
         i = 0
@@ -220,8 +222,7 @@ class LapSim:
                     ap = v[i]**2/self.r[np.remainder(i+1, self.steps)]#*np.cos(self.elevation[i])-self.car.m*self.g*np.sin(self.elevation[i])
                     if self.car.alim>ap:                                                # below traction limit
                         i1 = np.remainder(i+1, self.steps)                           # step forward
-                        # v[i1], gear[i1], energy_list[i1],time[i1]= self.calc_velocity_3D(vin=v[i],ap=ap, gear=int(gear[i]), hybrid = self.hybrid, elevation = self.elevation[i])
-                        v[i1], gear[i1], energy_list[i1],time[i1]= self.calc_velocity(vin=v[i],ap=ap, gear=int(gear[i]), hybrid = self.hybrid)
+                        v[i1], gear[i1], energy_list[i1],time[i1]= self.calc_velocity(vin=v[i],ap=ap, gear=int(gear[i]),roc=self.r[np.remainder(i+1, self.steps)])
                         i = i1
                     else:                                                           # traction is lost
                         state = 'b'
@@ -229,7 +230,6 @@ class LapSim:
                         print('losing traction, jumping to apex '+str(apex_idx+1), ' at i=',self.apex[0][apex_idx], ', current i=',i)
                         i = self.apex[0][apex_idx]
                 else:                                                               # check if velocity at next apex can be achieved with the current gear
-                    # self.check_velocity_at_apex(vin=v[i], vnext=v[np.remainder(i+1, self.steps)],ap=ap)
                     if np.min(v)==0:                                                  # reaching an apex without braking
                         i = np.remainder(i+1, self.steps)
                         apex_idx = np.remainder(apex_idx+1, len(self.apex[0]))
@@ -239,26 +239,64 @@ class LapSim:
             elif state == 'b':                                                  # backward
                 ap = v[i]**2/self.r[i-1]#*np.cos(self.elevation[i])-self.car.m*self.g*np.sin(self.elevation[i])
                 if v[i-1]==0:                                                   # if velocity is not yet calculated
-                    # v[i-1], gear[i-1], energy_list[i-1], time[i-1] = self.calc_velocity_3D(vin=v[i],ap=ap, gear=int(gear[i]), hybrid = self.hybrid, elevation = self.elevation[i])
-                    v[i-1], gear[i-1], energy_list[i-1], time[i-1] = self.calc_velocity(vin=v[i],ap=ap, gear=int(gear[i]), hybrid = self.hybrid)
+                    v[i-1], gear[i-1], energy_list[i-1], time[i-1] = self.calc_velocity(vin=v[i],ap=ap, gear=int(gear[i]),roc=self.r[np.remainder(i-1, self.steps)])
                     i-=1
                 else:                                                           # if velocity is calculated from forward integration
-                    # vb, gearb, energyb, timeb = self.calc_velocity_3D(vin=v[i],ap=ap, gear=int(gear[i]), hybrid = self.hybrid, elevation = self.elevation[i])
-                    vb, gearb, energyb, timeb = self.calc_velocity(vin=v[i],ap=ap, gear=int(gear[i]), hybrid = self.hybrid)
-                    if vb < v[i-1]:                                          # continue backward integration
-                        v[i-1] = vb
-                        energy_list[i-1] = energyb
-                        time[i-1] = timeb
-                        gear[i-1] = gearb
-                        i-=1
-                    else:                                                       # found brake point 
-                        print('reached break point, start integrating forward from apex '+str(apex_idx+1))
+                    if self.car.alim<ap:                                        # if the previous point is an apex; loosing traction
+                        print('losing traction (back), start integrating forward from apex '+str(apex_idx+1))
                         state = 'f'
                         i = self.apex[0][apex_idx]
+                    else:                                                       # if still can accelerate
+                        vb, gearb, energyb, timeb = self.calc_velocity(vin=v[i],ap=ap, gear=int(gear[i]),roc=self.r[np.remainder(i-1, self.steps)])
+                        if vb < v[i-1]:                                          # continue backward integration
+                            v[i-1] = vb
+                            energy_list[i-1] = energyb
+                            time[i-1] = timeb
+                            gear[i-1] = gearb
+                            i-=1
+                        else:                                                       # found brake point 
+                            print('reached break point, start integrating forward from apex '+str(apex_idx+1))
+                            state = 'f'
+                            i = self.apex[0][apex_idx]
 
+        energy_list, time = self.e_apex(v, gear, energy_list, time)
+        dec = np.where(np. sign(v-np.roll(v,-1))==1)                 # decelerating points
+        energy_list[dec[0]] = [0,0]
 
         return v, gear, energy_list, time
 
+    def v_apex(self):
+
+        v = np.zeros(self.steps)
+        gear = np.zeros(self.steps)
+        
+        for i in self.apex[0]:
+            v_trac = np.sqrt(self.car.mu * self.g * self.r[i])
+            rpm0 = v_trac/(self.car.wheel_radius*0.0254*2*np.pi)*60
+            if self.car.hybrid == 1:
+                _, maxrpm, gear[i] = self.v_lim_hybrid(v_trac, 0, rpm0)
+            else:
+                _, maxrpm = self.v_lim_electric(v_trac, rpm0)
+                gear[i] = 1
+            v_rpm = maxrpm/60*(self.car.wheel_radius*0.0254*2*np.pi)
+            v[i] = np.min([v_trac,v_rpm])
+            
+        return v, gear
+
+    def e_apex(self, v=0, gear=0, energy_list=0, time=0):
+        
+        for i in self.apex[0]:
+            a = (v[i+1]**2-v[i]**2)/(2*self.ds)
+            time[i] = (v[i+1]-v[i])/a
+            p_ICE = self.car.m * a * v[i] * (self.car.hybrid*self.car.power_split)
+            p_EM = self.car.m * a * v[i] - p_ICE
+
+            e_ICE = self.calc_fuel(gear[i], v[i], p_ICE, time[i])
+            e_EM = p_EM*time[i]/(self.car.motor.eta/100)
+
+            energy_list[i] = [e_ICE, e_EM]
+
+        return energy_list, time
 
     def calc_velocity_3D(self, vin=0, ap=0, gear=1, hybrid=0, elevation=0):
         '''
@@ -333,105 +371,168 @@ class LapSim:
         return v, gear_curr, energy, t
 
 
-    def calc_velocity(self, vin=0, ap=0, gear=1, hybrid=0):
+    def calc_velocity (self,vin=0,ap=0,gear=1, roc=0):
+
+        # calculate rpm and check for shifting conditions
+        rpm0 = vin/(self.car.wheel_radius*0.0254*2*np.pi)*60    # rpm of wheels at current velocity
+        
+        if self.car.hybrid == 1:
+            a_tor, maxrpm, gear_new = self.v_lim_hybrid(vin, gear, rpm0)
+        else:
+            a_tor, maxrpm = self.v_lim_electric(vin, rpm0)
+            gear_new = 1
+
+        # torque-limited velocity [m/s]
+        v_tor = np.sqrt(2*a_tor*self.ds+vin**2)    # v^2-vi^2 = 2a*ds
+        t_tor = (v_tor-vin)/a_tor
+
+        # traction-limited velocity [m/s]                   
+        a_trac = np.sqrt(self.car.alim**2-ap**2)
+        v_trac = np.sqrt(2*a_trac*self.ds+vin**2)  
+        t_trac = (v_trac-vin)/a_trac                                   
+
+        # lateral traction-limited velocity [m/s]
+        v_trac_l = np.sqrt(self.car.alim*roc)
+        a_trac_l = (v_trac_l**2-vin**2)/(2*self.ds)
+        t_trac_l = (v_trac_l-vin)/a_trac_l 
+
+        # rpm-limited velocity [m/s]
+        v_rpm = maxrpm/60*(self.car.wheel_radius*0.0254*2*np.pi)
+        a_rpm = (v_rpm**2-vin**2)/(2*self.ds)
+        t_rpm = (v_rpm-vin)/a_rpm
+
+        v = np.min([v_trac,v_tor,v_rpm,v_trac_l])
+        if v == v_tor:
+            t = t_tor
+            p_ICE = self.car.m * a_tor * v * (self.car.hybrid*self.car.power_split)
+            p_EM = self.car.m * a_tor * v - p_ICE
+            print('Power limited. Velocity =',v, ', ICE Power [hp] =', str('{0:.2f}'.format(p_ICE)), 'EM Power [hp] =', str('{0:.2f}'.format(p_EM/745.7)))
+        elif v == v_trac:
+            t = t_trac
+            p_ICE = self.car.m * a_trac * v * (self.car.hybrid*self.car.power_split)
+            p_EM = self.car.m * a_trac * v - p_ICE
+            print('Traction limited. Velocity =',v, ', ICE Power [hp] =', str('{0:.2f}'.format(p_ICE)), 'EM Power [hp] =', str('{0:.2f}'.format(p_EM/745.7)))
+        elif v == v_trac_l:
+            t = t_trac_l
+            p_ICE = self.car.m * a_trac_l * v * (self.car.hybrid*self.car.power_split)
+            p_EM = self.car.m * a_trac_l * v - p_ICE
+            print('Lateral traction limited. Velocity =',v, ', ICE Power [hp] =', str('{0:.2f}'.format(p_ICE)), 'EM Power [hp] =', str('{0:.2f}'.format(p_EM/745.7)))
+        elif v == v_rpm:
+            t = t_rpm
+            p_ICE = self.car.m * a_rpm * v * (self.car.hybrid*self.car.power_split)
+            p_EM = self.car.m * a_rpm * v - p_ICE
+            print('RPM limited. Velocity =',v, ', RPM at EM =', str('{0:.0f}'.format(maxrpm*self.car.motor.trans)), 'max EM RPM =', self.car.motor.maxrpm)
+
+        e_ICE = self.calc_fuel(gear_new, v, p_ICE, t)
+        e_EM = p_EM*t/(self.car.motor.eta/100)
+        
+        return v, gear_new, [e_ICE, e_EM], t
+    
+
+    def v_lim_hybrid(self, vin=0, gear=1, rpm0=0):
+        '''
+        Calculates velocity at the next discretized step (hybrid vehicles only)
+        - Integrate for traction-limited velocity 
+        - Calculate maximum acceleration allowed at the current power output and integrate for power-limited velocity
+        - Compare and return the lower value as the velocity at the next step
+        - Check rpm at each step and determine whether to shift gear
+        ICE+EM
+        '''
+        
+        # calculate rpm and check for shifting conditions
+        r = 0.95                                             # set the max rpm
+        rpm_list = rpm0*self.car.engine.trans[2:]*self.car.engine.trans[0]*self.car.engine.trans[1]   # rpm at all gears
+
+        # calculate Power output
+        if (gear == 1 and rpm_list[0]<self.car.engine.minrpm):
+            rpm_at_gear_new = rpm_list[0]                                                  
+            gear_new = gear
+            p_ICE = self.car.engine.power(self.car.engine.minrpm)                                       # use constant extrapolation for v near 0        
+        else:
+            rpm_idx = np.where((self.car.engine.maxrpm*r>rpm_list) & (self.car.engine.minrpm<rpm_list))       # index of possible rpm
+            if len(rpm_idx[0]) == 0:
+                rpm_at_gear_new = self.car.engine.maxrpm
+                gear_new = gear
+            else:
+                gear_new = rpm_idx[0][0]+1                                                     # gear chosen for next step
+                rpm_at_gear_new = rpm_list[rpm_idx[0][0]]
+            p_ICE = self.car.engine.power(rpm_at_gear_new)                                          # ICE power output after shifting                              
+
+        # Power/rpm -> torque at the engine output (*gear ratio) -> torque at the wheel -> force at the wheel -> acceleration
+        omega_ICE = (rpm_at_gear_new/60)*(2*np.pi)                                           # angular velocity [rad/s] revolution per minute / 60s * 2pi
+        if omega_ICE != 0:
+            torque_ICE_at_wheel = (p_ICE*745.7/omega_ICE)*self.car.engine.trans[gear_new+1]  # always use maximum torque during acceleration
+        else:
+            torque_ICE_at_wheel = 0
+
+        # torque limited acceleration
+        torque_EM_at_wheel = self.car.motor.torque_max*1.356*self.car.motor.trans
+        a_tor = (torque_EM_at_wheel+torque_ICE_at_wheel)/(self.car.wheel_radius*0.0254*self.car.m)
+        
+        # maxrpm determined by transmission
+        wheel_maxrpm_ICE = self.car.engine.maxrpm/(self.car.engine.trans[gear_new+1]*self.car.engine.trans[0]*self.car.engine.trans[1])     
+        wheel_maxrpm_EM = self.car.motor.maxrpm/self.car.motor.trans      
+        maxrpm = np.min([wheel_maxrpm_EM,wheel_maxrpm_ICE])
+        
+        if gear != gear_new:
+            print('Shifting...... Current gear:', gear_new)
+        
+        return a_tor, maxrpm, gear_new
+
+
+    def v_lim_electric(self, vin=0, rpm0=0):
         '''
         Calculates velocity at the next discretized step
         - Integrate for traction-limited velocity 
         - Calculate maximum acceleration allowed at the current power output and integrate for power-limited velocity
         - Compare and return the lower value as the velocity at the next step
         - Check rpm at each step and determine whether to shift gear
-        hybrid = 0: electric car (EM only)
-        hybrid = 1: hybrid car (ICE + EM)
+        EM only
         '''
 
-        # calculate rpm and check for shifting conditions
-        r = 0.95                                                # set the max rpm
-        rpm0 = vin/(self.car.wheel_radius*0.0254*2*np.pi)*60    # rpm of wheels
-        rpm_list = rpm0*self.car.gear_ratio[2:]*self.car.gear_ratio[0]*self.car.gear_ratio[1]   # rpm at all gears
-
-        # calculate Power output
-        if (gear == 1 and rpm_list[0]<self.car.minrpm):
-            rpm_at_gear_curr = self.car.minrpm                                                  # use constant extrapolation for v near 0
-            gear_curr = gear
-        else:
-            rpm_idx = np.where((self.car.maxrpm*r>rpm_list) & (self.car.minrpm<rpm_list))       # index of possible rpm
-            if len(rpm_idx[0]) == 0:
-                print('No higher gear available. Current gear:',gear,', Current rpm:', rpm_list[gear-1])
-                rpm_at_gear_curr = self.car.maxrpm
-                gear_curr = gear
-            else:
-                gear_curr = rpm_idx[0][0]+1                                                     # gear chosen for next step
-                rpm_at_gear_curr = rpm_list[rpm_idx[0][0]]                                              
-
-        Power = self.car.power(rpm_at_gear_curr)                                          # ICE power output after shifting                                   
-
-        # Power/rpm -> torque at the engine output (*gear ratio) -> torque at the wheel -> force at the wheel -> acceleration
-        # omega_rad_s = (rpm_at_gear_curr/60)*(2*np.pi)                                           # angular velocity [rad/s] revolution per minute / 60s * 2pi
-        # ae = ((Power+self.car.power_EM)*745.7/omega_rad_s)*self.car.gear_ratio[gear_curr+1]/(self.car.wheel_radius*0.0254*self.car.m)
+        rpm = rpm0*self.car.motor.trans                         # rpm at motor
+        omega = (rpm/60)*(2*np.pi)                              # angular velocity [rad/s]                       # angular velocity [rad/s] revolution per minute / 60s * 2pi
         
-        ae = 19.3*1.356**self.car.gear_ratio[gear_curr+1]/(self.car.wheel_radius*0.0254*self.car.m)           # torque at wheel [Nm]
-
-        # power-limited velocity [m/s]                       
-        v_pow = np.sqrt(2*ae*self.ds+vin**2)
-        t_pow = (v_pow-vin)/ae
-
-        # traction-limited velocity [m/s]                   
-        at = np.sqrt(self.car.alim**2-ap**2)                                            # (traction limited) tangential acceleration
-        v_trac = np.sqrt(2*at*self.ds+vin**2)  
-        t_trac = (v_trac-vin)/self.car.alim
+        # torque-limited velocity [m/s]
+        torque_EM_at_wheel = self.car.motor.power_max*1.356*self.car.motor.trans
+        a_tor = torque_EM_at_wheel/(self.car.wheel_radius*0.0254*self.car.m)               # torque-limited acceleration
         
         # rpm-limited velocity [m/s]
-        wheel_maxrpm = self.car.maxrpm/(self.car.gear_ratio[gear_curr+1]*self.car.gear_ratio[0]*self.car.gear_ratio[1])      # rpm at wheels
-        v_rpm = wheel_maxrpm/60*(self.car.wheel_radius*0.0254*2*np.pi)
-        t_rpm = self.ds/v_rpm
+        maxrpm = self.car.motor.maxrpm/self.car.motor.trans
 
-        v = np.min([v_trac,v_pow,v_rpm])
-        if v == v_pow:
-            t = t_pow
-            print('Power limited. Power [hp] =', Power)
-        elif v == v_trac:
-            t = t_trac
-            print('Traction limited. Power [hp] =', Power)
-        elif v == v_rpm:
-            t = t_rpm
-            print('RPM limited. Power [hp] =', Power, '. Current gear:', gear_curr)
-
-        if hybrid == 1:
-            energy = self.calc_fuel(gear_curr, v, Power, t)
-        else:
-            energy = [0, Power*100/self.car.eta_EM*745.7*t]
-
-        if gear != gear_curr:
-            print('Shifting...... Current gear:', gear_curr)
-
-        return v, gear_curr, energy, t
+        return a_tor, maxrpm
 
 
     def calc_fuel(self, gear, v, Power, t):
         '''
+        ONLY FOR HYBRID VEHICLES
         Calculates the total energy consumed at a discrete step
         ICE efficiency 2D interpolation of the fuel efficiency chart
         EM efficiency is assumed to be a constant
         '''
 
-        rpm = v/(self.car.wheel_radius*0.0254*2*np.pi)*60*self.car.gear_ratio[gear+1]*self.car.gear_ratio[0]*self.car.gear_ratio[1]   # rpm at current gear
+        if Power == 0:
+            return 0
+
+        rpm = v/(self.car.wheel_radius*0.0254*2*np.pi)*60*self.car.engine.trans[int(gear)+1]*self.car.engine.trans[0]*self.car.engine.trans[1]   # rpm at current gear
         
         # calculate energy consumed from fuel efficiency
         x = rpm/60*2*np.pi                  # ICE angular velocity [rad/s]
-        if x<self.car.fuel[0,0]:
-            x = self.car.fuel[0,0]                              # for low v, use constant interpolation for fuel efficiency
-        y = Power*745.7/x                                       # torque [Nm]
+        if x<self.car.engine.eta[0,0]:
+            x = self.car.engine.eta[0,0]                        # for low v, use constant interpolation for fuel efficiency
+        y = Power/x                                       # torque [Nm]
+        if y<self.car.engine.eta[0,1]:
+            y = self.car.engine.eta[0,1]                        # for low v, use constant interpolation for fuel efficiency
         from scipy.interpolate import griddata
         intmethod = 'cubic'
-        eta = griddata(self.car.fuel[:,:2], self.car.fuel[:,2], (x,y), method=intmethod)
+        eta = griddata(self.car.engine.eta[:,:2], self.car.engine.eta[:,2], (x,y), method=intmethod)
 
-        P_ICE = Power*100/eta*745.7*t                 # power consumed by ICE [J]
-        P_EM = self.car.power_EM*100/self.car.eta_EM*745.7*t  # power consumed by EM [J]
+        e_ICE = Power*100/eta*t                 # energy consumed by ICE [J]
 
         if np.isnan(eta):
             print('WARNING: ICE speed and/or torque are outside of the interpolation range.')
 
-        return [P_ICE, P_EM]
+        return e_ICE
 
 
     def find_brake_pts(self):
@@ -446,7 +547,7 @@ class LapSim:
         return brake
 
 
-    def plot_discretized_points(self, apex=0, brake=0, elevation=0):
+    def plot_discretized_points(self, apex=0, brake=0, elevation=0, index=0):
         
         from mpl_toolkits.axes_grid1 import make_axes_locatable
         import matplotlib.cm as cmx
@@ -464,6 +565,9 @@ class LapSim:
         else:
             plt.scatter(self.pts_interp[0], self.pts_interp[1],s=10,label='Interpolation')
         plt.scatter(self.pts[0],self.pts[1],s=2,label='Input')
+        if index == 1:
+            for i in range(len(self.pts[0])):
+                ax.annotate(str(i)+'('+'{0:.3g}'.format(self.s[i]*100)+')',xy=(self.pts[0,i],self.pts[1,i]), xycoords='data')
         if apex==1:
             plt.scatter(self.pts_interp[0,self.apex],self.pts_interp[1,self.apex],c='g',marker='^',label='apex')
         if brake==1:
@@ -497,9 +601,9 @@ class LapSim:
         # ax.scatter(self.pts[0],self.pts[1],c='k',s=2,label='Input')
         if apex==1:
             plt.scatter(self.pts_interp[0,self.apex],self.pts_interp[1,self.apex],c='r',marker='x',label='apex')
+            plt.legend(fontsize=10)
         plt.xlabel('X [m]', fontsize=10)
         plt.ylabel('Y [m]', fontsize=10)
-        plt.legend(fontsize=10)
         plt.title('Average speed:'+str('{0:.2f}'.format(np.mean(self.v)*2.23))+'mph'+\
             '\nTotal energy consumption:'+str('{0:.2f}'.format(np.sum(self.energy)/1000))+'kJ', fontsize=12)
         cbaxes = fig2.add_axes([0.87, 0.2, 0.02, 0.6])
