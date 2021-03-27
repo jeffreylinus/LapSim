@@ -23,11 +23,6 @@ TODO:
  - sim until run out of fuel
 tyre data
 
-EM:
-- Use continuous torque for endurance
-- Use peak torque for acceleration
-- For hybrid, use constant torque and linear power ***
-
 chapter 14
 chapter 17 (suspension)
 

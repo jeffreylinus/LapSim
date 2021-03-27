@@ -1,6 +1,10 @@
 '''
 Testclass
-EM: 
+
+Problem with varying energy split:
+Motor nominal voltage --> number of cells --> accummulator capacity
+This seems to be fixed?
+
 '''
 
 from motor import Motor
@@ -14,14 +18,14 @@ import matplotlib.pyplot as plt
 
 # car = Car.init_config(filepath='data\\Powertrain Part Options.xlsx', name_EM='Emrax 207', name_ICE='KTM 250 SX-F', hybrid=1)
 car = Car.init_config(filepath='data\\Powertrain Part Options.xlsx', name_EM='Emrax 228', name_ICE='KTM 250 SX-F', hybrid=1, mu=0.6)
-# car = Car.init_config(filepath='data\\Powertrain Part Options.xlsx', name_EM='Emrax 207', hybrid=0, mu=0.6)
+# car = Car.init_config(filepath='data\\Powertrain Part Options.xlsx', name_EM='Emrax 207', hybrid=0, mu=0.4)
 # car = Car.init_config(filepath='data\\Powertrain Part Options.xlsx', name_EM='Saietta 119R', hybrid=0)
 
 run = 'lapsim'                                 # lapsim or acc
 
 if run == 'acc':                        # accleration event
     
-    acc = Acc.init_straight(steps=100, EM=0, m=350, track_len=75, car=car)
+    acc = Acc.init_straight(steps=100, EM=0, m=350, track_len=150, car=car)
     acc.acc_time()
 
     print('Track length:',str('{0:.2f}'.format(acc.track_len/1000)),'km')

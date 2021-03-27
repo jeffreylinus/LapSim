@@ -24,7 +24,8 @@ class Car:
         self.wheel_radius = kwargs.pop('wheel_radius', 10)  # wheel radius [inches]
         self.hybrid = kwargs.pop('hybrid',0)                # 1-hybrid; 0-electric
 
-        self.power_split = kwargs.pop('power_split', 0.5)    # fraction of power drawn from EM
+        self.power_split = kwargs.pop('power_split', 0.5)    # fraction of power drawn from EM (max: 0.512 from the rules)
+        self.fuel_capacity = kwargs.pop('fuel_capacity', 31.25) # total fuel capacity [MJ]
 
 
     @classmethod
@@ -38,10 +39,13 @@ class Car:
         
         car = cls(**kwargs)
 
-        car.motor = Motor.init_from_file(motor_data=filepath, name_EM=name_EM)
+        capacity_EM = car.fuel_capacity * car.power_split           # fuel capacity of EM 
+        capacity_ICE = car.fuel_capacity * (1-car.power_split)      # fuel capacity of ICE
+
+        car.motor = Motor.init_from_file(motor_data=filepath, name_EM=name_EM, capacity=capacity_EM)
 
         if car.hybrid == 1:
-            car.engine = Engine.init_from_file(engine_data=filepath, name_ICE=name_ICE)
+            car.engine = Engine.init_from_file(engine_data=filepath, name_ICE=name_ICE, capacity=capacity_ICE)
 
         car.calc_mass()
         
@@ -52,7 +56,10 @@ class Car:
         '''
         Mass calculation (kg)
         '''
-        base_mass = 250
+        base_mass = (120+20+24+160)*0.4536                          # chassis, tires, uprights, driver
+
+        # self.engine.m_fuel =  
+        # self.motor.m_acc = 
 
         if self.hybrid == 1:
             self.m = base_mass + self.motor.m + self.engine.m

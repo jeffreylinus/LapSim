@@ -12,6 +12,7 @@ class Engine:
 
         self.name = kwargs.pop('name_ICE',0)                    # ICE name
         self.m = kwargs.pop('m',30)                        # mass of ICE [kg]
+        self.m_fuel = kwargs.pop('m_fuel',0)                    # mass of fuel [kg]
         
         self.capacity = kwargs.pop('capacity',0)            # cc
         self.power = kwargs.pop('power',0)          # nominal electric motor power [kW]
@@ -21,6 +22,8 @@ class Engine:
         self.minrpm = kwargs.pop('minrpm',0)                # minimum rpm
         
         self.eta = kwargs.pop('eta',0)                     # fuel efficiency
+
+        self.capacity = kwargs.pop('capacity',0)        # fuel capacity [MJ]
         
         
     @classmethod
@@ -32,6 +35,8 @@ class Engine:
         sheet_name = kwargs.pop('sheet_name','ICE Stats')                       # EM data sheet name
 
         engine = cls(**kwargs)
+
+        engine.m_fuel = engine.capacity/46.4                                # gasoline: 46.4 MJ/kg
 
         engine.get_data(engine_data=engine_data, sheet_name=sheet_name)
 
@@ -53,7 +58,7 @@ class Engine:
             return self
         
         self.capacity = df['cc'].values[idx[0][0]]
-        self.m = df['Weight (lbs)'].values[idx[0][0]]*0.4536
+        self.m = df['Weight (lbs)'].values[idx[0][0]]*0.4536 + self.m_fuel
         self.eta = self.get_fuel_data()
 
         trans = df['Transmission Data'].values[idx[0][0]]

@@ -11,7 +11,9 @@ class Motor:
         """
 
         self.name = kwargs.pop('name_EM',0)                    # EM name
-        self.m = kwargs.pop('m',30)                        # mass of EM [kg]
+        self.m = kwargs.pop('m',30)                         # mass of EM [kg]
+        self.m_acc = kwargs.pop('m_acc',0)                  # mass of accumulator [kg]
+        self.m_MC = kwargs.pop('m_MC',0)                    # motor controller mass [kg]
         
         self.power_nom = kwargs.pop('power_nom',0)          # nominal electric motor power [kW]
         self.power_max = kwargs.pop('power_max',0)          # max power [kW]
@@ -25,6 +27,8 @@ class Motor:
         self.torque_max = kwargs.pop('torque_max',0)          # max torque [Nm]
 
         self.eta = kwargs.pop('eta',95)                     # fuel efficiency
+
+        self.capacity = kwargs.pop('capacity',0)            # accumulator capacity [MJ] 
         
         
     @classmethod
@@ -36,6 +40,8 @@ class Motor:
         sheet_name = kwargs.pop('sheet_name','EM Stats')                       # EM data sheet name
 
         motor = cls(**kwargs)
+
+        motor.m_MC = 30*0.4536                                          # motor controller mass [kg]
 
         motor.get_data(motor_data=motor_data, sheet_name=sheet_name)
 
@@ -62,7 +68,11 @@ class Motor:
         self.maxrpm = df['MAX RPM'].values[idx[0][0]]
         self.power_nom = df['Power (kW)'].values[idx[0][0]]
         self.power_max = df['Peak Power'].values[idx[0][0]]
-        self.m = df['Weight (lbs)'].values[idx[0][0]]*0.4536
+
+        battery_no = self.voltage / 2.5                                         # number of batteries
+        self.m_acc = battery_no*2*0.4536                                        # mass of accumulator [kg]
+
+        self.m = df['Weight (lbs)'].values[idx[0][0]]*0.4536 + self.m_acc + self.m_MC
         self.trans = 4
 
         return 1
