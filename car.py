@@ -27,6 +27,9 @@ class Car:
         self.power_split = kwargs.pop('power_split', 0.5)    # fraction of power drawn from EM (max: 0.512 from the rules)
         self.fuel_capacity = kwargs.pop('fuel_capacity', 31.25) # total fuel capacity [MJ]
 
+        self.a = kwargs.pop('frontal_area', 0.85)           # cross sectional area
+        self.cd = 0.95                                      # air drag coefficient
+
 
     @classmethod
     def init_config(cls, **kwargs):

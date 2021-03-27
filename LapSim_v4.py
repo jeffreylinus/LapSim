@@ -5,6 +5,7 @@ from car import Car
 class LapSim:
     '''
     A lap time simulator (point-mass) for 3D tracks
+    Accounts for air drag, power split between EM and ICE
     Forward integration until losing traction
     Backward integration from next apex to find brake point
 
@@ -24,6 +25,7 @@ class LapSim:
 
         self.g = 9.81                                       # gravitational acceleration
         self.steps = kwargs.pop('steps', 50)                # number of discretized points
+        self.rho_air = 1.2                                  # density of air
         
         self.pts = kwargs.pop('pts',0)                  # input track data
         self.pts_interp = kwargs.pop('pts_interp',0)    # interpolated track data
@@ -394,14 +396,20 @@ class LapSim:
         # Power/rpm -> torque at the engine output (*gear ratio) -> torque at the wheel -> force at the wheel -> acceleration
         omega_ICE = (rpm_at_gear_new/60)*(2*np.pi)                                           # angular velocity [rad/s] revolution per minute / 60s * 2pi
         if omega_ICE != 0:
-            p_elevation = self.car.m*self.g*np.sin(elevation)*vin
-            torque_ICE_at_wheel = ((p_ICE*745.7-p_elevation)/omega_ICE)*self.car.engine.trans[gear_new+1]  # always use maximum torque during acceleration
+            torque_ICE_at_wheel = (p_ICE*745.7/omega_ICE)*self.car.engine.trans[gear_new+1]  # always use maximum torque during acceleration
         else:
             torque_ICE_at_wheel = 0
 
         # torque limited acceleration
-        torque_EM_at_wheel = self.car.motor.torque_max*1.356*self.car.motor.trans
-        a_tor = (torque_EM_at_wheel+torque_ICE_at_wheel)/(self.car.wheel_radius*0.0254*self.car.m)
+        torque_EM_at_wheel = self.car.motor.torque_max*self.car.motor.trans
+        omega_at_wheel = vin/(self.car.wheel_radius*0.0254)
+        total_power = (torque_EM_at_wheel+torque_ICE_at_wheel)*omega_at_wheel
+        p_elevation = self.car.m*self.g*np.sin(elevation)*vin
+        p_drag = 0.5*self.rho_air*self.car.cd*self.car.a*vin**3
+
+        effective_power = total_power - p_elevation - p_drag
+        a_tor = (effective_power/omega_at_wheel)/(self.car.wheel_radius*0.0254*self.car.m)
+        # a_tor_2 = (torque_EM_at_wheel+torque_ICE_at_wheel)/(self.car.wheel_radius*0.0254*self.car.m)
         
         # maxrpm determined by transmission
         wheel_maxrpm_ICE = self.car.engine.maxrpm/(self.car.engine.trans[gear_new+1]*self.car.engine.trans[0]*self.car.engine.trans[1])     
@@ -424,12 +432,14 @@ class LapSim:
         EM only
         '''
 
-        rpm = rpm0*self.car.motor.trans                         # rpm at motor
-        omega = (rpm/60)*(2*np.pi)                              # angular velocity [rad/s]                       # angular velocity [rad/s] revolution per minute / 60s * 2pi
-        
+        omega_at_wheel = rpm0/60*2*np.pi
+
         # torque-limited velocity [m/s]
-        torque_EM_at_wheel = self.car.motor.power_max*1.356*self.car.motor.trans
-        a_tor = torque_EM_at_wheel/(self.car.wheel_radius*0.0254*self.car.m)               # torque-limited acceleration
+        p_elevation = self.car.m*self.g*np.sin(elevation)*vin
+        p_drag = 0.5*self.rho_air*self.car.cd*self.car.a*vin**3
+        effective_power = self.car.motor.torque_max*self.car.motor.trans*omega_at_wheel-p_elevation-p_drag
+
+        a_tor = (effective_power/omega_at_wheel)/(self.car.wheel_radius*0.0254*self.car.m)
         
         # rpm-limited velocity [m/s]
         maxrpm = self.car.motor.maxrpm/self.car.motor.trans
