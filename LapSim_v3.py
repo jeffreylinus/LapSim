@@ -161,6 +161,8 @@ class LapSim:
         r = num/den
 
         r[np.isnan(r)] = np.inf
+
+        r = (r+np.roll(r, 1, axis=0) + np.roll(r, -1, axis=0))/3
         
         return dpds, d2pds2, r
 

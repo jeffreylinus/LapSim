@@ -17,10 +17,6 @@ TODO:
  - traction
  - acceleration
  - curvature
-+ continuous sim 
- - add fuel capacity (4449 Wh)
- - gas: 2343 Wh/Liter
- - sim until run out of fuel
 tyre data
 
 chapter 14
