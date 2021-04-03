@@ -206,7 +206,7 @@ class LapSim:
             ignore shift time
         '''
 
-        self.car.alim = self.g * self.car.mu                            # might want to split lateral/longitudinal traction limit
+        self.car.alimy = self.g * self.car.muy                           # lateral traction limit
         energy_list = np.zeros((self.steps,2))
         v, gear = self.v_apex()                                         # velocity and gear at apex
         time = np.zeros(self.steps)
@@ -221,7 +221,7 @@ class LapSim:
             if state == 'f':                                                        # forward
                 if v[np.remainder(i+1, self.steps)]==0:
                     ap = v[i]**2/self.r[np.remainder(i+1, self.steps)]*np.cos(self.elevation[i])
-                    if self.car.alim>ap:                                                # below traction limit
+                    if self.car.alimy>ap:                                                # below traction limit
                         i1 = np.remainder(i+1, self.steps)                           # step forward
                         roc = self.r[np.remainder(i+1, self.steps)]
                         elevation = self.elevation[np.remainder(i+1, self.steps)]
@@ -247,7 +247,7 @@ class LapSim:
                     v[i-1], gear[i-1], energy_list[i-1], time[i-1] = self.calc_velocity_3D(vin=v[i],ap=ap, gear=int(gear[i]),roc=roc, elevation=elevation)
                     i-=1
                 else:                                                           # if velocity is calculated from forward integration
-                    if self.car.alim<ap:                                        # if the previous point is an apex; loosing traction
+                    if self.car.alimy<ap:                                        # if the previous point is an apex; loosing traction
                         print('losing traction (back), start integrating forward from apex '+str(apex_idx+1))
                         state = 'f'
                         i = self.apex[0][apex_idx]
@@ -278,7 +278,7 @@ class LapSim:
         gear = np.zeros(self.steps)
         
         for i in self.apex[0]:
-            v_trac = np.sqrt(self.car.mu * self.g * np.cos(self.elevation[i]) * self.r[i])
+            v_trac = np.sqrt(self.car.muy * self.g * np.cos(self.elevation[i]) * self.r[i])
             rpm0 = v_trac/(self.car.wheel_radius*0.0254*2*np.pi)*60
             if self.car.hybrid == 1:
                 _, maxrpm, gear[i] = self.v_lim_hybrid(v_trac, 0, rpm0, self.elevation[i])
@@ -322,12 +322,12 @@ class LapSim:
 
         # traction-limited velocity [m/s]                   
         a_elev = self.g*np.sin(np.absolute(elevation))                          # loss in traction due to elevation change
-        a_trac = np.sqrt(self.car.alim**2-ap**2)-a_elev
+        a_trac = np.sqrt(self.car.alimy**2-ap**2)-a_elev
         v_trac = np.sqrt(2*a_trac*self.ds+vin**2)  
         t_trac = (v_trac-vin)/a_trac                                   
 
         # lateral traction-limited velocity [m/s]
-        v_trac_l = np.sqrt(self.car.alim*roc)
+        v_trac_l = np.sqrt(self.car.alimy*roc)
         a_trac_l = (v_trac_l**2-vin**2)/(2*self.ds)
         t_trac_l = (v_trac_l-vin)/a_trac_l 
 

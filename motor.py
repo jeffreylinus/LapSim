@@ -14,6 +14,7 @@ class Motor:
         self.m = kwargs.pop('m',30)                         # mass of EM [kg]
         self.m_acc = kwargs.pop('m_acc',0)                  # mass of accumulator [kg]
         self.m_MC = kwargs.pop('m_MC',0)                    # motor controller mass [kg]
+        self.acc_type = kwargs.pop('acc_type','cap')        # 'cap' - ultracaps; 'bat' - batteries
         
         self.power_nom = kwargs.pop('power_nom',0)          # nominal electric motor power [kW]
         self.power_max = kwargs.pop('power_max',0)          # max power [kW]
@@ -68,10 +69,23 @@ class Motor:
         self.maxrpm = df['MAX RPM'].values[idx[0][0]]
         self.power_nom = df['Power (kW)'].values[idx[0][0]]
         self.power_max = df['Peak Power'].values[idx[0][0]]
+        
+        acc_box_m = 20*0.4536                                                                    # battery box mass
 
-        battery_no = self.voltage / 2.5                                         # number of batteries
-        self.m_acc = battery_no*2*0.4536                                        # mass of accumulator [kg]
-
+        if self.acc_type == 'cap':
+            self.cap_voltage = 2.5
+            cap_no = self.voltage / self.cap_voltage                                         # number of capacitors
+            self.m_acc = cap_no*0.725+acc_box_m                                             # mass of accumulator [kg]
+            self.capacitance = 2700                                                         # capacitance of the ultracaps
+            self.capacity = cap_no*(self.capacitance/7200)*(0.99*self.cap_voltage**2)        # accumulator capacity [Wh]
+        elif self.acc_type == 'bat':
+            self.bat_voltage = 3.3
+            battery_no = self.voltage / self.bat_voltage
+            self.m_acc = battery_no*0.496+acc_box_m
+            self.amp_hours = 19.5
+            self.capacity = battery_no*0.8*self.bat_voltage*self.amp_hours                   # accumulator capacity [Wh]
+            
+        
         self.m = df['Weight (lbs)'].values[idx[0][0]]*0.4536 + self.m_acc + self.m_MC
         self.trans = 4
 

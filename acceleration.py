@@ -18,6 +18,7 @@ class Acc:
 
         self.g = 9.81                                       # gravitational acceleration
         self.steps = kwargs.pop('steps', 50)                # number of discretized points
+        self.rho_air = 1.2                                  # density of air
         
         self.pts = kwargs.pop('pts',0)                      # input track data
         self.pts_interp = kwargs.pop('pts_interp',0)        # interpolated track data
@@ -80,7 +81,7 @@ class Acc:
         Repeat calculation until losing traction, then jump to the next apex and integrate backwards to find the brake point.
         '''
 
-        self.car.alim = self.g * self.car.mu                            # might want to split lateral/longitudinal traction limit
+        self.car.alim = self.g * self.car.mux                            # might want to split lateral/longitudinal traction limit
         v = np.zeros(self.steps)
         energy_list = np.zeros((self.steps,2))
         gear = np.zeros(self.steps)
@@ -177,7 +178,21 @@ class Acc:
         rpm_at_EM = vin/(self.car.wheel_radius*0.0254*2*np.pi)*60*self.car.motor.trans
         omega_EM = (rpm_at_EM/60)*(2*np.pi)
         torque_EM_at_wheel = self.car.motor.torque_max*1.356*self.car.motor.trans
-        a_tor = (torque_EM_at_wheel+torque_ICE_at_wheel)/(self.car.wheel_radius*0.0254*self.car.m)
+        if vin != 0:
+            p_drag = 0.5*self.rho_air*self.car.cd*self.car.a*vin**3
+            t_drag = p_drag/(omega_EM/self.car.motor.trans)                 # torque due to air drag
+        else:
+            t_drag = 0
+        a_tor = (torque_EM_at_wheel+torque_ICE_at_wheel-t_drag)/(self.car.wheel_radius*0.0254*self.car.m)
+
+        # # torque limited acceleration
+        # torque_EM_at_wheel = self.car.motor.torque_max*self.car.motor.trans
+        # omega_at_wheel = vin/(self.car.wheel_radius)
+        # total_power = (torque_EM_at_wheel+torque_ICE_at_wheel)*omega_at_wheel
+        
+        # effective_power = total_power - p_drag
+        # a_tor = (effective_power/omega_at_wheel)/(self.car.wheel_radius*0.0254*self.car.m)
+        # # a_tor_2 = (torque_EM_at_wheel+torque_ICE_at_wheel)/(self.car.wheel_radius*0.0254*self.car.m)
         
         # maxrpm determined by transmission
         wheel_maxrpm_ICE = self.car.engine.maxrpm/(self.car.engine.trans[gear_new+1]*self.car.engine.trans[0]*self.car.engine.trans[1])     
@@ -205,13 +220,23 @@ class Acc:
         rpm = rpm0*self.car.motor.trans                         # rpm at motor
         omega = (rpm/60)*(2*np.pi)                              # angular velocity [rad/s]                       # angular velocity [rad/s] revolution per minute / 60s * 2pi
         
+        # # torque-limited velocity [m/s]
+        # torque_EM_at_wheel = self.car.motor.power_max*1.356*self.car.motor.trans
+        # a_tor = torque_EM_at_wheel/(self.car.wheel_radius*0.0254*self.car.m)               # torque-limited acceleration
+        
+        # # rpm-limited velocity [m/s]
+        # maxrpm = self.car.motor.maxrpm/self.car.motor.trans
+        omega_at_wheel = rpm0/60*2*np.pi
+
         # torque-limited velocity [m/s]
-        torque_EM_at_wheel = self.car.motor.power_max*1.356*self.car.motor.trans
-        a_tor = torque_EM_at_wheel/(self.car.wheel_radius*0.0254*self.car.m)               # torque-limited acceleration
+        p_elevation = self.car.m*self.g*np.sin(elevation)*vin
+        p_drag = 0.5*self.rho_air*self.car.cd*self.car.a*vin**3
+        effective_power = self.car.motor.torque_max*self.car.motor.trans*omega_at_wheel-p_elevation-p_drag
+
+        a_tor = (effective_power/omega_at_wheel)/(self.car.wheel_radius*0.0254*self.car.m)
         
         # rpm-limited velocity [m/s]
-        maxrpm = self.car.motor.maxrpm/self.car.motor.trans
-        
+         
         p_EM = omega*self.car.motor.torque_max                  # power consumed by EM [J]
         p_ICE = 0
 

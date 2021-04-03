@@ -1,15 +1,5 @@
 '''
-Testclass
-
-1. Choose engine/motor pair: run engine/motor pairs with e.g. 10/90, 30/70, 50/50 em-ice split. For weights - go by nominal voltage of em/energy limits in rules
-
-
-2. Choose torque control strategy - e.g. 10/90....
-    - maybe also test strategies while varying accumulator weight? 
-        - q: can we assume we can get any arbitrary weight
-        - when varying weight -> how does voltage, and consequently motor performance vary?
-    - to measure: total distance travelled, fastest/avg lap times
-
+Iterate over all powertrain configurations
 
 '''
 
@@ -18,7 +8,6 @@ from engine import Engine
 from car import Car
 
 import numpy as np
-# from LapSim_v3 import LapSim                # 2D lapsim
 from LapSim_v4 import LapSim                # 3D lapsim
 from acceleration import Acc
 import matplotlib.pyplot as plt
