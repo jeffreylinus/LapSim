@@ -393,7 +393,13 @@ class LapSim:
             rpm_idx = np.where((self.car.engine.maxrpm*r>rpm_list) & (self.car.engine.minrpm<rpm_list))       # index of possible rpm
             if len(rpm_idx[0]) == 0:
                 rpm_at_gear_new = self.car.engine.maxrpm
-                gear_new = gear
+                if gear == 0:                                                                           # for initial gear calculation at apex
+                    if np.min(rpm_list)>self.car.engine.maxrpm*r:
+                        gear_new = 5
+                    elif np.max(rpm_list)<self.car.engine.minrpm*r:
+                        gear_new = 1
+                else:
+                    gear_new = gear
             else:
                 gear_new = rpm_idx[0][0]+1                                                     # gear chosen for next step
                 rpm_at_gear_new = rpm_list[rpm_idx[0][0]]

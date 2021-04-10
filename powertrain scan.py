@@ -2,17 +2,9 @@
 Iterate over all powertrain configurations
 
 TODO:
-
-option 1:
-- choose powertrain based on current thing
-- Optimization (parameters: control strategy i.e. power split)
-
-option 2: (want this)
-Optimization before choosing powertrain:
-- for each configuration, optimize over fixed power split (motor * ICE * battery/cap* capacity split)
-- choose powertrain
-
-finish updating the config scan
+Check lapsim shifting conditions
+Rerun scan with correct score calculation
+Rerun optimizer
 
 '''
 
@@ -31,10 +23,10 @@ import time
 scan_paramaters = np.array(['motors','engines','capacity_split','cell/cap'])
 
 motors = pd.read_excel('data\\Powertrain Part Options.xlsx', sheet_name='EM Stats')
-motor_name = motors['Engine Name'].values
+motor_name = motors['Engine Name'].values[:2]
 engines = motors = pd.read_excel('data\\Powertrain Part Options.xlsx', sheet_name='ICE Stats')
-engine_name = engines['Engine Name'].values
-capacity_split = np.array([0.5,0.6,0.7,0.8])  # Total ICE energy: should be greater than 0.488
+engine_name = engines['Engine Name'].values[:2]
+capacity_split = np.array([0.5])#,0.6,0.7,0.8])  # Total ICE energy: should be greater than 0.488
 cell_cap = np.array(['bat','cap'])
 
 
@@ -45,13 +37,16 @@ result = np.zeros((len(motor_name)*len(engine_name)*len(capacity_split)*len(cell
 for i,config in enumerate(configs):
 
     starttime = time.time()
-    sys.stdout = open(os.devnull, 'w')
+    # sys.stdout = open(os.devnull, 'w')
 
     # get_power_split
     car0 = Car.init_config(filepath='data\\Powertrain Part Options.xlsx', name_EM=config[0], name_ICE=config[1], hybrid=1, capacity_split=config[2], acc_type=config[3])
 
     lapsim0 = LapSim.init_data(track_data='data\\Formula Hybrid Track Data.xlsx', steps=200, car=car0) 
     lapsim0.lap_time()
+
+    lapsim0.plot_velocity()
+    plt.show()
 
     # Power split calculation:
     # Actual E = r * total E * a (coefficient to be determined); for r0=0.5, r_new = a_ICE / (a_ICE+a_EM)
@@ -92,10 +87,11 @@ acc_time = result[:,0]
 lap_time = result[:,1]
 lap_no = result[:,2]
 lap_no = np.clip(lap_no,a_min=0,a_max = 44)
+lapsum = (np.round(lap_no)+1)*np.round(lap_no)/2
 
 acc_score = 10+15+75*(np.min(acc_time)/acc_time)
 maxavg = 105/44*60
-endurance_score = 35+52.5+262.5*(lap_no/np.max(lap_no))*((maxavg/lap_time-1)/(maxavg/np.min(lap_time)-1))
+endurance_score = 35+52.5+262.5*(lapsum/990)*((maxavg/lap_time-1)/(maxavg/np.min(lap_time)-1))
 total_score = acc_score + endurance_score
 
 df = pd.DataFrame({'Motor_Name': configs[:,0],'ICE_Name': configs[:,1],'ICE_Capacity_Ratio':configs[:,2], 'Accumulator_Type':configs[:,3],\
