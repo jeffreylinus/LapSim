@@ -72,20 +72,34 @@ class Motor:
         
         acc_box_m = 20*0.4536                                                                    # battery box mass
 
+        # add the capacity-based weight calculation
+
         if self.acc_type == 'cap':
-            self.cap_voltage = 2.5
-            cap_no = self.voltage / self.cap_voltage                                         # number of capacitors
-            self.m_acc = cap_no*0.725+acc_box_m                                             # mass of accumulator [kg]
-            self.capacitance = 2700                                                         # capacitance of the ultracaps
-            self.capacity = cap_no*(self.capacitance/7200)*(0.99*self.cap_voltage**2)        # accumulator capacity [Wh]
+            self.cap_voltage = 2.85
+            self.energy_per_cap = 3.8                                                         # capacity of each ultracap
+            min_cap_no = self.voltage / self.cap_voltage                                         # minimum number of capacitors
+            act_cap_no = np.ceil((self.capacity*277)/self.energy_per_cap)
+            if min_cap_no > act_cap_no:
+                cap_no = min_cap_no
+                self.capacity = cap_no*self.energy_per_cap/277        # accumulator capacity [MJ]
+                print('WARNING: invalid EM/ICE capacity ratio, increase EM capacity and rebuild the car.')
+            else: 
+                cap_no = act_cap_no
+            self.m_acc = cap_no*0.525+acc_box_m                                             # mass of accumulator [kg]
         elif self.acc_type == 'bat':
             self.bat_voltage = 3.3
-            battery_no = self.voltage / self.bat_voltage
-            self.m_acc = battery_no*0.496+acc_box_m
             self.amp_hours = 19.5
-            self.capacity = battery_no*0.8*self.bat_voltage*self.amp_hours                   # accumulator capacity [Wh]
+            min_bat_no = self.voltage / self.bat_voltage
+            act_bat_no = np.ceil((self.capacity*277.8)/(0.8*self.bat_voltage*self.amp_hours))
+            if min_bat_no > act_bat_no:
+                bat_no = min_bat_no
+                self.capacity = bat_no*0.8*self.bat_voltage*self.amp_hours/277.8                   # accumulator capacity [MJ]
+                print('WARNING: invalid EM/ICE capacity ratio, increase EM capacity and rebuild the car.')
+            else:
+                bat_no = act_bat_no
+            self.m_acc = bat_no*0.496+acc_box_m
             
-        
+            
         self.m = df['Weight (lbs)'].values[idx[0][0]]*0.4536 + self.m_acc + self.m_MC
         self.trans = 4
 

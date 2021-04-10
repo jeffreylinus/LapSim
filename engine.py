@@ -14,7 +14,6 @@ class Engine:
         self.m = kwargs.pop('m',30)                        # mass of ICE [kg]
         self.m_fuel = kwargs.pop('m_fuel',0)                    # mass of fuel [kg]
         
-        self.capacity = kwargs.pop('capacity',0)            # cc
         self.power = kwargs.pop('power',0)          # nominal electric motor power [kW]
         self.trans = kwargs.pop('trans',10)             # transmission gear ratio
         
@@ -57,7 +56,6 @@ class Engine:
             print('ICE not found!')
             return self
         
-        self.capacity = df['cc'].values[idx[0][0]]
         self.m = df['Weight (lbs)'].values[idx[0][0]]*0.4536 + self.m_fuel
         self.eta = self.get_fuel_data()
 
@@ -86,10 +84,10 @@ class Engine:
         fuel - fuel efficiency [%]
         '''
 
-        y, x = np.mgrid[10:30:4j, 400:1400:9j]
+        y, x = np.mgrid[10:40:4j, 400:1500:9j]
 
         fuel = np.array([[13,13,13,13,13,13,13,13,13],[16,16,16,15,15,15,15,15,15],\
-            [23,23,23,23,23,22.5,22.5,22.5,22.5],[0,30,32,32.5,32.5,32,32,28,0]])
+            [23,23,23,23,23,22.5,22.5,22.5,22.5],[13,30,32,32.5,32.5,32,32,28,13]])
         
         data = np.transpose([x.reshape(-1),y.reshape(-1),fuel.reshape(-1)])
 

@@ -66,7 +66,7 @@ class Acc:
         # calculate lap time
         self.time = np.sum(self.time_list)
 
-        self.plot_velocity()
+        # self.plot_velocity()
 
         return 1   
 
@@ -177,7 +177,12 @@ class Acc:
         # torque limited acceleration
         rpm_at_EM = vin/(self.car.wheel_radius*0.0254*2*np.pi)*60*self.car.motor.trans
         omega_EM = (rpm_at_EM/60)*(2*np.pi)
-        torque_EM_at_wheel = self.car.motor.torque_max*1.356*self.car.motor.trans
+
+        if self.car.motor.acc_type == 'cap':
+            torque_EM_at_wheel = self.car.motor.torque_max*1.356*self.car.motor.trans
+        else: 
+            torque_EM_at_wheel = self.car.motor.torque_con*1.356*self.car.motor.trans
+        
         if vin != 0:
             p_drag = 0.5*self.rho_air*self.car.cd*self.car.a*vin**3
             t_drag = p_drag/(omega_EM/self.car.motor.trans)                 # torque due to air drag
@@ -199,7 +204,10 @@ class Acc:
         wheel_maxrpm_EM = self.car.motor.maxrpm/self.car.motor.trans      
         maxrpm = np.min([wheel_maxrpm_EM,wheel_maxrpm_ICE])
         
-        p_EM = omega_EM*self.car.motor.torque_max              # Power = torque * omega
+        if self.car.motor.acc_type == 'cap':
+            p_EM = omega_EM*self.car.motor.torque_max              # Power = torque * omega
+        else:
+            p_EM = omega_EM*self.car.motor.torque_con              # Power = torque * omega
 
         if gear != gear_new:
             print('Shifting...... Current gear:', gear_new)
@@ -229,15 +237,20 @@ class Acc:
         omega_at_wheel = rpm0/60*2*np.pi
 
         # torque-limited velocity [m/s]
-        p_elevation = self.car.m*self.g*np.sin(elevation)*vin
         p_drag = 0.5*self.rho_air*self.car.cd*self.car.a*vin**3
-        effective_power = self.car.motor.torque_max*self.car.motor.trans*omega_at_wheel-p_elevation-p_drag
+
+        if self.car.motor.acc_type == 'cap':
+            effective_power = self.car.motor.torque_max*self.car.motor.trans*omega_at_wheel-p_drag
+        else:
+            effective_power = self.car.motor.torque_con*self.car.motor.trans*omega_at_wheel-p_drag
 
         a_tor = (effective_power/omega_at_wheel)/(self.car.wheel_radius*0.0254*self.car.m)
         
         # rpm-limited velocity [m/s]
-         
-        p_EM = omega*self.car.motor.torque_max                  # power consumed by EM [J]
+        if self.car.motor.acc_type == 'cap':
+            p_EM = omega*self.car.motor.torque_max                  # power consumed by EM [J]
+        else:
+            p_EM = omega*self.car.motor.torque_con                  # power consumed by EM [J]
         p_ICE = 0
 
         return a_tor, maxrpm, p_EM, p_ICE

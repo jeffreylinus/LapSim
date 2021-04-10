@@ -25,7 +25,9 @@ class Car:
         self.wheel_radius = kwargs.pop('wheel_radius', 10)  # wheel radius [inches]
         self.hybrid = kwargs.pop('hybrid',0)                # 1-hybrid; 0-electric
 
-        self.power_split = kwargs.pop('power_split', 0.5)    # fraction of power drawn from EM (max: 0.512 from the rules)
+        self.power_split = kwargs.pop('power_split', 0.5)       # fraction of power drawn from ICE
+        self.capacity_split = kwargs.pop('capacity_split', 0.5)    # fraction of ICE capacity (min: 0.488 from the rules)
+        
         self.capacity = kwargs.pop('capacity', 31.25) # total fuel capacity [MJ]
 
         self.a = kwargs.pop('frontal_area', 0.85)           # cross sectional area
@@ -44,7 +46,8 @@ class Car:
 
         car = cls(**kwargs)
 
-        car.motor = Motor.init_from_file(motor_data=filepath, name_EM=name_EM, acc_type=acc_type)
+        capacity_EM = car.capacity*(1-car.capacity_split)
+        car.motor = Motor.init_from_file(motor_data=filepath, name_EM=name_EM, acc_type=acc_type, capacity=capacity_EM)
 
         if car.hybrid == 1:
             capacity_ICE = car.capacity - car.motor.capacity

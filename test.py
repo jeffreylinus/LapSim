@@ -32,10 +32,6 @@ series vs parallel
 Series:
 - charging speed: generator, accummulator (cpacity, current)
 
-
-
-
-
 '''
 
 import numpy as np

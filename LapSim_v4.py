@@ -96,12 +96,12 @@ class LapSim:
         # find brake points
         self.brake = self.find_brake_pts()
 
-        self.plot_discretized_points(apex=0, brake=0, elevation=0, index=1)            # check apex location
+        # self.plot_discretized_points(apex=0, brake=0, elevation=0, index=1)            # check apex location
 
         # calculate lap time
         self.time = np.sum(self.time_list)
 
-        self.plot_velocity(apex=0)
+        # self.plot_velocity(apex=0)
 
         return 1   
 
@@ -294,7 +294,10 @@ class LapSim:
         
         for i in self.apex[0]:
             a = (v[i+1]**2-v[i]**2)/(2*self.ds)
-            time[i] = (v[i+1]-v[i])/a
+            if a == 0:
+                time[i]=self.ds/v[i]
+            else:
+                time[i] = (v[i+1]-v[i])/a
             p_ICE = self.car.m * a * v[i] * (self.car.hybrid*self.car.power_split)
             p_EM = self.car.m * a * v[i] - p_ICE
 
@@ -334,7 +337,10 @@ class LapSim:
         # rpm-limited velocity [m/s]
         v_rpm = maxrpm/60*(self.car.wheel_radius*0.0254*2*np.pi)
         a_rpm = (v_rpm**2-vin**2)/(2*self.ds)
-        t_rpm = (v_rpm-vin)/a_rpm
+        if a_rpm == 0:
+            t_rpm = self.ds/v_rpm
+        else:
+            t_rpm = (v_rpm-vin)/a_rpm
 
         v = np.min([v_trac,v_tor,v_rpm,v_trac_l])
         if v == v_tor:
@@ -462,11 +468,15 @@ class LapSim:
         
         # calculate energy consumed from fuel efficiency
         x = rpm/60*2*np.pi                  # ICE angular velocity [rad/s]
-        if x<self.car.engine.eta[0,0]:
-            x = self.car.engine.eta[0,0]                        # for low v, use constant interpolation for fuel efficiency
+        if x<np.min(self.car.engine.eta[:,0]):
+            x = np.min(self.car.engine.eta[:,0])                        # for low v, use constant interpolation for fuel efficiency
+        elif x>np.max(self.car.engine.eta[:,0]):
+            x = np.max(self.car.engine.eta[:,0])
         y = Power/x                                       # torque [Nm]
-        if y<self.car.engine.eta[0,1]:
-            y = self.car.engine.eta[0,1]                        # for low v, use constant interpolation for fuel efficiency
+        if y<np.min(self.car.engine.eta[:,1]):
+            y = np.min(self.car.engine.eta[:,1])                        # for low v, use constant interpolation for fuel efficiency
+        elif y>np.max(self.car.engine.eta[:,1]):
+            y = np.max(self.car.engine.eta[:,1])
         from scipy.interpolate import griddata
         intmethod = 'cubic'
         eta = griddata(self.car.engine.eta[:,:2], self.car.engine.eta[:,2], (x,y), method=intmethod)

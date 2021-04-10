@@ -24,15 +24,13 @@ from acceleration import Acc
 import matplotlib.pyplot as plt
 
 # car = Car.init_config(filepath='data\\Powertrain Part Options.xlsx', name_EM='Emrax 207', name_ICE='KTM 250 SX-F', hybrid=1)
-car = Car.init_config(filepath='data\\Powertrain Part Options.xlsx', name_EM='Emrax 228', name_ICE='KTM 250 SX-F', hybrid=1)
-# car = Car.init_config(filepath='data\\Powertrain Part Options.xlsx', name_EM='Emrax 207', hybrid=0, mu=0.4)
-# car = Car.init_config(filepath='data\\Powertrain Part Options.xlsx', name_EM='Saietta 119R', hybrid=0)
+car = Car.init_config(filepath='data\\Powertrain Part Options.xlsx', name_EM='Emrax 228', name_ICE='KTM 250 SX-F', acc_type='cap', hybrid=1)
 
 run = 'acc'                                 # lapsim or acc
 
 if run == 'acc':                        # accleration event
     
-    acc = Acc.init_straight(steps=100, EM=0, m=350, track_len=75, car=car)
+    acc = Acc.init_straight(steps=100, track_len=75, car=car)
     acc.acc_time()
 
     print('Total acceleration time:',str('{0:.2f}'.format(acc.time)),'s')
