@@ -30,8 +30,8 @@ class Car:
         
         self.capacity = kwargs.pop('capacity', 31.25) # total fuel capacity [MJ]
 
-        self.a = kwargs.pop('frontal_area', 0.85)           # cross sectional area
-        self.cd = 0.95                                      # air drag coefficient
+        self.a = kwargs.pop('frontal_area', 0.99)           # cross sectional area
+        self.cd = 0.3595                                      # air drag coefficient
 
 
     @classmethod

@@ -162,7 +162,7 @@ class LapSim:
 
         r[np.isnan(r)] = np.inf
 
-        r = (r+np.roll(r, 1, axis=0) + np.roll(r, -1, axis=0))/3
+        r = (r+np.roll(r, 1, axis=0)+ np.roll(r, -1, axis=0))/3
         
         return dpds, d2pds2, r
 
@@ -395,7 +395,7 @@ class LapSim:
                 rpm_at_gear_new = self.car.engine.maxrpm
                 if gear == 0:                                                                           # for initial gear calculation at apex
                     if np.min(rpm_list)>self.car.engine.maxrpm*r:
-                        gear_new = 5
+                        gear_new = len(self.car.engine.trans)-2
                     elif np.max(rpm_list)<self.car.engine.minrpm*r:
                         gear_new = 1
                 else:
