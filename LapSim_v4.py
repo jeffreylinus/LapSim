@@ -413,7 +413,7 @@ class LapSim:
             torque_ICE_at_wheel = 0
 
         # torque limited acceleration
-        torque_EM_at_wheel = self.car.motor.torque_max*self.car.motor.trans
+        torque_EM_at_wheel = self.car.motor.torque_con*self.car.motor.trans
         omega_at_wheel = vin/(self.car.wheel_radius*0.0254)
         total_power = (torque_EM_at_wheel+torque_ICE_at_wheel)*omega_at_wheel
         p_elevation = self.car.m*self.g*np.sin(elevation)*vin
@@ -449,7 +449,7 @@ class LapSim:
         # torque-limited velocity [m/s]
         p_elevation = self.car.m*self.g*np.sin(elevation)*vin
         p_drag = 0.5*self.rho_air*self.car.cd*self.car.a*vin**3
-        effective_power = self.car.motor.torque_max*self.car.motor.trans*omega_at_wheel-p_elevation-p_drag
+        effective_power = self.car.motor.torque_con*self.car.motor.trans*omega_at_wheel-p_elevation-p_drag
 
         a_tor = (effective_power/omega_at_wheel)/(self.car.wheel_radius*0.0254*self.car.m)
         

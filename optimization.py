@@ -14,10 +14,10 @@ import sys, os
 import pandas as pd
 import time
 
-EM = "Agni 95"
+EM = "UQM Technologies PowerPhase 75"
 ICE = "KTM 250 SX-F"
 # v = [0.5,0.14182157324195305]
-v = [0.5,0.2]
+v = [0.6,0.19]
 plot = 0
 score_list = np.array([])
 
@@ -29,7 +29,7 @@ def score(v, EM, ICE, plot):
     sys.stdout = open(os.devnull, 'w')
     # data from parametric scan run
     min_acc_time = 6.182742085
-    min_lap_time = 46.8694933
+    min_lap_time = 46.8841714
     maxavg = 105/44*60
     max_lapsum = 990
 
@@ -49,10 +49,7 @@ def score(v, EM, ICE, plot):
     acc = Acc.init_straight(steps=100, track_len=75, car=car)
     acc.acc_time()
     
-    # car.motor.torque_con = car.motor.torque_con*0.5
-    # car.motor.torque_max = car.motor.torque_max*0.5
-    # car.motor.power_nom = car.motor.power_nom*0.5
-    # car.motor.power_max = car.motor.power_max*0.5
+    car.motor.torque_con = car.motor.torque_con*0.5
     lapsim = LapSim.init_data(track_data='data\\Formula Hybrid Track Data.xlsx', steps=200, car=car) 
     lapsim.lap_time()
     
@@ -60,8 +57,6 @@ def score(v, EM, ICE, plot):
     # calculate score
     E_engine = np.sum(lapsim.energy,axis=0)[0]
     E_motor = np.sum(lapsim.energy,axis=0)[1]
-    lap_no_motor = car.motor.capacity*1E6/E_motor
-    lap_no_engine = car.engine.capacity*1E6/E_engine
 
     lap_no = car.capacity*1E6/(E_engine+E_motor)
 
@@ -81,14 +76,14 @@ def score(v, EM, ICE, plot):
 
         car = Car.init_config(filepath='data\\Powertrain Part Options.xlsx', name_EM=EM, name_ICE=ICE, hybrid=1, capacity = new_cap, capacity_split=v[0], power_split=v[1], acc_type='bat')
 
+        if car.capacity_split<=0.488:
+            return 0
+
         # run sims
         acc = Acc.init_straight(steps=100, track_len=75, car=car)
         acc.acc_time()
         
-        # car.motor.torque_con = car.motor.torque_con*0.5
-        # car.motor.torque_max = car.motor.torque_max*0.5
-        # car.motor.power_nom = car.motor.power_nom*0.5
-        # car.motor.power_max = car.motor.power_max*0.5
+        car.motor.torque_con = car.motor.torque_con*0.5
         lapsim = LapSim.init_data(track_data='data\\Formula Hybrid Track Data.xlsx', steps=200, car=car) 
         lapsim.lap_time()
         
@@ -122,7 +117,7 @@ def score(v, EM, ICE, plot):
 
     sys.stdout = sys.__stdout__
 
-    print('Capacity split =', str(v[0]), 'Power split =', str(v[1]), 'E_total =',str('{0:.3f}'.format(E_motor+E_engine)),'; Acc. time =',str('{0:.3f}'.format(acc_time)),'; Lap time =',\
+    print('Capacity split =', str(car.capacity_split), 'Power split =', str(v[1]), 'E_total =',str('{0:.3f}'.format(E_motor+E_engine)),'; Acc. time =',str('{0:.3f}'.format(acc_time)),'; Lap time =',\
         str('{0:.3f}'.format(lap_time)),'; Lap number =',str('{0:.3f}'.format(lap_no)),'; Total Score =', total_score)
 
     if plot == 1:
@@ -133,7 +128,7 @@ def score(v, EM, ICE, plot):
     return -total_score
 
 
-eps = [1E-02, 1E-01]
+eps = [3E-02, 3E-02]
 mtd = 'TNC'
 
 init_score = score(v, EM, ICE, 1)

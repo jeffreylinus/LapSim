@@ -33,7 +33,7 @@ cell_cap = np.array(['bat','cap'])
 configs = np.array(np.meshgrid(motor_name, engine_name,capacity_split,cell_cap)).T.reshape(-1,4)
 result = np.zeros((len(motor_name)*len(engine_name)*len(capacity_split)*len(cell_cap),3))         # results: acc time, lap time, lap no
 
-for i,config in enumerate(configs):
+for i,config in enumerate(configs[95:]):
 
     starttime = time.time()
     sys.stdout = open(os.devnull, 'w')

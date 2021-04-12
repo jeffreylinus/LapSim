@@ -49,6 +49,9 @@ class Car:
         capacity_EM = car.capacity*(1-car.capacity_split)
         car.motor = Motor.init_from_file(motor_data=filepath, name_EM=name_EM, acc_type=acc_type, capacity=capacity_EM)
 
+        if car.motor.capacity != capacity_EM:
+            car.capacity_split = 1-car.motor.capacity/car.capacity
+
         if car.hybrid == 1:
             capacity_ICE = car.capacity - car.motor.capacity
             car.engine = Engine.init_from_file(engine_data=filepath, name_ICE=name_ICE, capacity=capacity_ICE)
