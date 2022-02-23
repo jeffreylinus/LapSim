@@ -66,7 +66,9 @@ class Acc:
         # calculate lap time
         self.time = np.sum(self.time_list)
 
+        # test = np.vstack((self.v,self.time_list)).transpose()
         # self.plot_velocity()
+        # plt.show()
 
         return 1   
 
@@ -104,7 +106,7 @@ class Acc:
         if self.car.hybrid == 1:
             a_tor, maxrpm, gear_new, p_EM, p_ICE = self.v_lim_hybrid(vin, gear, rpm0)
         else:
-            a_tor, maxrpm, p_EM, p_ICE = self.v_lim_electric(vin, rpm0)
+            a_tor, maxrpm, p_EM, p_ICE = self.v_lim_electric(vin, rpm0+0.01)
             gear_new = 1
 
         # torque-limited velocity [m/s]
@@ -215,7 +217,7 @@ class Acc:
         return a_tor, maxrpm, gear_new, p_EM, p_ICE
 
 
-    def v_lim_electric(self, vin=0, rpm0=0):
+    def v_lim_electric(self, vin=0, rpm0=0.1):
         '''
         Calculates velocity at the next discretized step
         - Integrate for traction-limited velocity 
@@ -233,7 +235,7 @@ class Acc:
         # a_tor = torque_EM_at_wheel/(self.car.wheel_radius*0.0254*self.car.m)               # torque-limited acceleration
         
         # # rpm-limited velocity [m/s]
-        # maxrpm = self.car.motor.maxrpm/self.car.motor.trans
+        maxrpm = self.car.motor.maxrpm/self.car.motor.trans
         omega_at_wheel = rpm0/60*2*np.pi
 
         # torque-limited velocity [m/s]

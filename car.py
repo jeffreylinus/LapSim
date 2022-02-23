@@ -17,9 +17,9 @@ class Car:
         self.engine = kwargs.pop('engine',0)                # ICE class
         self.motor= kwargs.pop('motor',0)                   # EM class
 
-        self.m = kwargs.pop('m',300)                            # mass of car [kg]
-        self.mux = kwargs.pop('mux',0.4)                         # longitudinal tyre frictional coefficient
-        self.muy = kwargs.pop('muy',0.9)                         # lateral tyre frictional coefficient
+        self.m = kwargs.pop('m',320)                            # mass of car [kg]
+        self.mux = kwargs.pop('mux',1)                         # longitudinal tyre frictional coefficient
+        self.muy = kwargs.pop('muy',1)                         # lateral tyre frictional coefficient
         
         self.alim = kwargs.pop('alim',0)                    # traction-limited acceleration (only used in Acc)
         self.wheel_radius = kwargs.pop('wheel_radius', 10)  # wheel radius [inches]
