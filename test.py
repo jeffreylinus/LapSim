@@ -38,15 +38,17 @@ import numpy as np
 from LapSim_v4 import LapSim
 from acceleration import Acc
 import matplotlib.pyplot as plt
-import engine_and_trans_data as data
+import car
+import motor
 
 name = 'emrax_208_2'                       #'ktm_250_SX_F''ktm_duke_200''honda_cbr_250R''yamaha_yz250f''kawasaki_ninja_250R_EXJ''emrax_208'
 hybrid = 0                                  # 1-hybrid, 0-electric
 run = 'acc'                                 # lapsim or acc
+test_vehicle = car.Car(motor=motor.Motor())
 
 if run == 'acc':                        # accleration event
     
-    acc = Acc.init_straight(steps=200, name=name, EM=0, m=220, hybrid=hybrid, track_len=300)
+    acc = Acc.init_straight(steps=200, name=name, EM=0, m=220, hybrid=hybrid, track_len=300, car=test_vehicle)
     acc.acc_time()
 
     print('Track length:',str('{0:.2f}'.format(acc.track_len/1000)),'km')

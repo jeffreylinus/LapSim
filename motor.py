@@ -11,10 +11,10 @@ class Motor:
         """
 
         self.name = kwargs.pop('name_EM',0)                    # EM name
-        self.m = kwargs.pop('m',30)                         # mass of EM [kg]
-        self.m_acc = kwargs.pop('m_acc',0)                  # mass of accumulator [kg]
-        self.m_MC = kwargs.pop('m_MC',0)                    # motor controller mass [kg]
-        self.acc_type = kwargs.pop('acc_type','cap')        # 'cap' - ultracaps; 'bat' - batteries
+        self.m = kwargs.pop('m',12.9)                         # mass of EM [kg]
+        self.m_acc = kwargs.pop('m_acc',25)                  # mass of accumulator [kg]
+        self.m_MC = kwargs.pop('m_MC',2)                    # motor controller mass [kg]
+        self.acc_type = kwargs.pop('acc_type','bat')        # 'cap' - ultracaps; 'bat' - batteries
         
         self.power_nom = kwargs.pop('power_nom',0)          # nominal electric motor power [kW]
         self.power_max = kwargs.pop('power_max',0)          # max power [kW]
