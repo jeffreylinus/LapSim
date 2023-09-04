@@ -24,7 +24,7 @@ from acceleration import Acc
 import matplotlib.pyplot as plt
 
 # car = Car.init_config(filepath='data\\Powertrain Part Options.xlsx', name_EM='Emrax 207', name_ICE='KTM 250 SX-F', hybrid=1)
-car = Car.init_config(filepath='data\\Powertrain Part Options.xlsx', name_EM='Emrax 228', acc_type='bat')
+car = Car.init_config(filepath='data/Powertrain Part Options.xlsx', name_EM='Emrax 228', acc_type='bat')
 
 run = 'acc'                                 # lapsim or acc
 
